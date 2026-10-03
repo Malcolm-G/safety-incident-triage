@@ -1,15 +1,18 @@
 """Review priority and queue order. Plain code only: the AI reader never sets these.
 
 Rules, in short:
-  * final severity = the higher of the AI reader's suggestion and the keyword floor (code only ever raises);
-  * if the AI reader gave no usable answer, the report goes to the TOP (severity 4), never to "low";
-  * the queue is ordered: highest severity, then failures, then disagreements, then most details missing.
+  * final severity = the higher of the AI reader's suggestion and the minimum from the check on its own answers
+    (code only ever raises);
+  * if there is no usable answer, or the report text tries to give the reader instructions, the report goes to
+    the TOP (severity 4) as "needs a person now", never to "low";
+  * the queue is ordered: highest severity, then needs-a-person, then disagreements, then most details missing.
 """
 from triage import text
-from triage.keywords import CodeRead, read_report
+from triage.consistency import check_reading
 from triage.loader import Report
 from triage.models import Failure, IncidentReading, Outcome, Triage
 from triage.reference import Reference
+from triage.textcheck import TextRead, read_text
 
 TOP = 4
 
@@ -22,43 +25,34 @@ def final_severity(suggested: int | None, floor: int) -> int:
 
 
 def sort_key(t: Triage) -> tuple:
-    return (-t.final_severity, not t.failed, not t.disagree, -t.missing_count, t.report_id)
+    return (-t.final_severity, not t.needs_person, not t.disagree, -t.missing_count, t.report_id)
 
 
-def _quote(words: tuple[str, ...], limit: int = 3) -> str:
-    return ", ".join(f'"{w}"' for w in words[:limit])
-
-
-def triage_report(report: Report, outcome: Outcome, ref: Reference, code: CodeRead | None = None) -> Triage:
-    code = code or read_report(report.text, ref.keywords, ref.instruction_phrases)
+def triage_report(report: Report, outcome: Outcome, ref: Reference, text_read: TextRead | None = None) -> Triage:
+    text_read = text_read or read_text(report.text, ref.instruction_phrases)
     failure = outcome if isinstance(outcome, Failure) else None
     reading: IncidentReading | None = None if failure else outcome
     suggested = reading.suggested_severity if reading else None
-    final = final_severity(suggested, code.floor)
+
+    consistency = check_reading(reading, ref.consistency) if reading else None
+    floor = consistency.floor if consistency else 0
+    final = final_severity(suggested, floor)
+    if text_read.instruction_like:
+        final = TOP                      # the reader's answer cannot be trusted for this report
 
     reasons: list[str] = []
     disagree = False
     if failure:
         reasons.append(text.FAILURE_REASONS[failure.value])
+    elif floor > suggested:
+        disagree = True
+        why = " ".join(dict.fromkeys(text.CONSISTENCY_REASONS[r] for r in consistency.deciding))
+        reasons.append(text.REASON_RAISED.format(suggested=ref.scale[suggested], final=ref.scale[floor], why=why))
     else:
-        if code.floor > suggested:
-            disagree = True
-            reasons.append(text.REASON_RAISED.format(
-                suggested=ref.scale[suggested], final=ref.scale[final],
-                words=_quote(code.top_hit.words) if code.top_hit else ""))
-        else:
-            reasons.append(text.REASON_AGREE.format(severity=ref.scale[final]))
-        # Only words that suggest a SERIOUS injury count here. Plain injury words are too often
-        # negated ("nobody was hurt"), and flagging those made almost every report "disagree".
-        if code.serious_injury_words and reading.injury_mentioned == "no":
-            disagree = True
-            reasons.append(text.REASON_INJURY_CONFLICT)
-        if code.damage_words and reading.damage_mentioned == "no":
-            disagree = True
-            reasons.append(text.REASON_DAMAGE_CONFLICT)
-    if code.instruction_like:
+        reasons.append(text.REASON_AGREE.format(severity=ref.scale[suggested]))
+    if text_read.instruction_like:
         reasons.append(text.REASON_INSTRUCTION)
-    if code.very_short:
+    if text_read.very_short:
         reasons.append(text.REASON_SHORT)
     missing = tuple(reading.missing_details) if reading else ()
     if missing:
@@ -67,8 +61,8 @@ def triage_report(report: Report, outcome: Outcome, ref: Reference, code: CodeRe
     type_id = reading.incident_type if reading else "other"
     return Triage(
         report_id=report.report_id, reading=reading, failure=failure, suggested_severity=suggested,
-        floor=code.floor, final_severity=final, disagree=disagree, instruction_like=code.instruction_like,
-        missing=missing, incomplete=bool(missing) or code.very_short, very_short=code.very_short,
+        floor=floor, final_severity=final, disagree=disagree, instruction_like=text_read.instruction_like,
+        missing=missing, incomplete=bool(missing) or text_read.very_short, very_short=text_read.very_short,
         reasons=tuple(reasons), checklist=tuple(ref.checklists.get(type_id, ref.checklists.get("other", []))),
     )
 

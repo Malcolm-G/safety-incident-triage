@@ -14,7 +14,7 @@ NOTHING_SENT = "Nothing is sent or closed."
 ALLOWED_SENTENCES = (NOTHING_SENT,)
 
 SYNTHETIC_BANNER = "SYNTHETIC DATA. Every report here is invented for demonstration. Nothing is real."
-ILLUSTRATIVE_NOTE = ("ILLUSTRATIVE ASSUMPTIONS. The severity scale, the keyword list and the checklists "
+ILLUSTRATIVE_NOTE = ("ILLUSTRATIVE ASSUMPTIONS. The severity scale, the checks on the AI reader's answers and the checklists "
                      "in this app are examples. They are not company policy or regulation.")
 REVIEW_AGAINST_POLICY = "Items are flagged for review against your own company's policy."
 FIXTURE_BANNER = ("HAND-WRITTEN EXAMPLE ANSWERS. The AI reader's answers on this page were written by hand "
@@ -46,7 +46,7 @@ ALT_TYPES = "The incident types"
 BAND_NAMES = {4: "Read now", 3: "High", 2: "Medium", 1: "Low"}
 BAND_NEEDS_PERSON = "Read now: needs a person"
 QUEUE_HEADING = "Review queue"
-QUEUE_INTRO = "Most urgent first. The order is worked out by fixed rules, not by the AI reader."
+QUEUE_INTRO = "Most urgent first. The order is worked out by fixed rules from the AI reader's answers."
 COL_ORDER = "Order"
 COL_REPORT = "Report"
 COL_PRIORITY = "Review priority"
@@ -80,14 +80,19 @@ NO_ANSWER_CARD = "There is no usable answer from the AI reader for this report."
 
 # ---------- reasons the rules give (plain words) ----------
 REASON_AGREE = "The AI reader's suggestion stands: {severity}."
-REASON_RAISED = ("The AI reader suggested {suggested}. The rules raised it to {final} "
-                 "because the report mentions {words}.")
-REASON_INJURY_CONFLICT = ("The text contains words that suggest a serious injury, but the AI reader says "
-                          "nobody was hurt. Please check.")
-REASON_DAMAGE_CONFLICT = ("The text contains words about damage to an aircraft, but the AI reader says nothing "
-                          "was damaged. Please check.")
-REASON_INSTRUCTION = ("This report contains text that looks like instructions to the reader. "
-                      "It was ignored. Please read it yourself.")
+REASON_RAISED = "The AI reader suggested {suggested}. Its own answers raised it to {final}. {why}"
+# Why a check on the AI reader's own answers raised a severity (one line per rule in consistency_rules.csv).
+CONSISTENCY_REASONS = {
+    "injury_yes": "The AI reader says someone was hurt.",
+    "injury_unclear": "The AI reader is not sure whether someone was hurt.",
+    "type_aircraft_contact": "Something touched an aircraft.",
+    "type_jet_blast": "Jet blast can move people and equipment.",
+    "type_fuel_spill": "Spilled fuel is a hazard that needs a look.",
+    "type_near_miss": "A near miss needs a look even when nobody was hurt.",
+    "damage_yes": "The AI reader says something was damaged.",
+}
+REASON_INSTRUCTION = ("This report contains text that looks like instructions to the reader, so the AI reader's "
+                      "answer cannot be trusted for it. Please read it yourself.")
 REASON_SHORT = "This is a very short report, so details are likely missing."
 REASON_MISSING = "Details marked as missing: {items}."
 FAILURE_REASONS = {
@@ -98,7 +103,7 @@ FAILURE_REASONS = {
     "service_error": "The AI reader could not be reached, so a person should read this report now.",
     "no_saved_answer": "There is no saved answer for this report, so a person should read it now.",
 }
-FLAG_DISAGREE = "The rules and the AI reader disagree"
+FLAG_DISAGREE = "The AI reader's answers and its severity disagree"
 FLAG_INSTRUCTION = "Contains instruction-like text"
 
 # ---------- quality checks ----------

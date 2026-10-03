@@ -67,9 +67,9 @@ class Triage:
     reading: IncidentReading | None     # what the AI reader suggested (None if it failed)
     failure: Failure | None
     suggested_severity: int | None
-    floor: int                          # 0 if no keyword group matched
-    final_severity: int                 # the review priority: 1 to 4 (failures are always 4)
-    disagree: bool                      # the rules and the AI reader do not agree
+    floor: int                          # minimum from the check on the AI reader's own answers, 0 if none
+    final_severity: int                 # the review priority: 1 to 4 (needs-a-person reports are always 4)
+    disagree: bool                      # the AI reader's answers and its severity do not agree
     instruction_like: bool              # the text looks like instructions aimed at the reader
     missing: tuple[str, ...]            # missing detail ids, as marked by the AI reader
     incomplete: bool
@@ -80,6 +80,12 @@ class Triage:
     @property
     def failed(self) -> bool:
         return self.failure is not None
+
+    @property
+    def needs_person(self) -> bool:
+        """The AI reader's answer cannot be trusted for this report (no usable answer, or planted
+        instructions in the text), so a person must read it now."""
+        return self.failed or self.instruction_like
 
     @property
     def missing_count(self) -> int:

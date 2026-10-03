@@ -17,7 +17,7 @@ class Check:
 def _order_problems(queue: list[Triage]) -> int:
     """Count neighbours that are in the wrong order, spelling the ordering rule out by hand."""
     def rank(t: Triage):
-        return (-t.final_severity, 0 if t.failed else 1, 0 if t.disagree else 1, -t.missing_count, t.report_id)
+        return (-t.final_severity, 0 if t.needs_person else 1, 0 if t.disagree else 1, -t.missing_count, t.report_id)
     return sum(1 for a, b in zip(queue, queue[1:]) if rank(a) > rank(b))
 
 
@@ -27,8 +27,8 @@ def run_checks(reports: list[Report], queue: list[Triage], statuses: dict[str, s
     in_queue = len(queued_ids) == len(report_ids) and sorted(queued_ids) == sorted(report_ids)
 
     bad_priority = [t for t in queue if t.final_severity not in (1, 2, 3, 4)]
-    # a report that failed must never sit below the top
-    bad_priority += [t for t in queue if t.failed and t.final_severity != 4]
+    # a report that needs a person (no usable answer, or planted instructions) must never sit below the top
+    bad_priority += [t for t in queue if t.needs_person and t.final_severity != 4]
 
     order_bad = _order_problems(queue)
     missing_status = [rid for rid in report_ids if not statuses.get(rid)]

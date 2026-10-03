@@ -10,6 +10,12 @@ import config
 
 LEVELS = (1, 2, 3, 4)
 
+# The AI reader's answers a consistency rule may look at, and the values each can take.
+RULE_FIELDS = {
+    "injury_mentioned": {"yes", "no", "unclear"},
+    "damage_mentioned": {"yes", "no", "unclear"},
+}
+
 
 @dataclass(frozen=True)
 class SeverityLevel:
@@ -26,11 +32,12 @@ class IncidentType:
 
 
 @dataclass(frozen=True)
-class Keyword:
-    group: str
-    keyword: str
+class ConsistencyRule:
+    """If the AI reader's answer for `field` equals `value`, the severity must be at least `floor`."""
+    rule_id: str
+    field: str
+    value: str
     floor: int
-    reason: str
 
 
 @dataclass(frozen=True)
@@ -69,12 +76,25 @@ def load_incident_types() -> list[IncidentType]:
     return types
 
 
-def load_keywords() -> list[Keyword]:
-    out = [Keyword(r["group"], r["keyword"].lower(), _level(r["floor"], "keyword_table.csv"), r["reason"])
-           for r in _rows("keyword_table.csv")]
-    if any(not k.keyword for k in out):
-        raise ValueError("keyword_table.csv has an empty keyword")
-    return out
+def load_consistency_rules() -> list[ConsistencyRule]:
+    type_ids = {t.id for t in load_incident_types()}
+    rules = []
+    for r in _rows("consistency_rules.csv"):
+        where = f"consistency_rules.csv ({r['rule_id']})"
+        floor = _level(r["floor"], where)
+        field, value = r["field"], r["value"]
+        if field == "incident_type":
+            if value not in type_ids:
+                raise ValueError(f"{where}: unknown incident type {value!r}")
+        elif field in RULE_FIELDS:
+            if value not in RULE_FIELDS[field]:
+                raise ValueError(f"{where}: {value!r} is not a possible answer for {field}")
+        else:
+            raise ValueError(f"{where}: rules can only look at the reader's fixed answers, not {field!r}")
+        rules.append(ConsistencyRule(r["rule_id"], field, value, floor))
+    if len({r.rule_id for r in rules}) != len(rules):
+        raise ValueError("consistency_rules.csv has a repeated rule_id")
+    return rules
 
 
 def load_required_details() -> list[RequiredDetail]:
@@ -99,7 +119,7 @@ class Reference:
     scale_rows: list[SeverityLevel]
     types: list[IncidentType]
     type_names: dict[str, str]
-    keywords: list[Keyword]
+    consistency: list[ConsistencyRule]
     details: dict[str, str]               # detail id -> plain label
     checklists: dict[str, list[str]]
     instruction_phrases: list[str]
@@ -113,7 +133,7 @@ def load_reference() -> Reference:
         scale_rows=scale_rows,
         types=types,
         type_names={t.id: t.name for t in types},
-        keywords=load_keywords(),
+        consistency=load_consistency_rules(),
         details={d.id: d.label for d in load_required_details()},
         checklists=load_checklists(),
         instruction_phrases=load_instruction_phrases(),

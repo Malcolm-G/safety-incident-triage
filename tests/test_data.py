@@ -4,8 +4,8 @@ from collections import Counter
 
 from triage.labels import load_labels
 from triage.loader import load_info, load_reports
-from triage.reference import (LEVELS, load_checklists, load_incident_types, load_instruction_phrases,
-                              load_keywords, load_required_details, load_severity_scale)
+from triage.reference import (LEVELS, load_checklists, load_consistency_rules, load_incident_types,
+                              load_instruction_phrases, load_required_details, load_severity_scale)
 
 
 def test_twenty_reports_parse():
@@ -65,27 +65,15 @@ def test_every_type_has_a_checklist():
     assert set(checklists) <= {t.id for t in load_incident_types()}
 
 
-def test_severity_scale_and_floors_are_one_to_four_only():
+def test_severity_scale_and_rule_minimums_are_one_to_four_only():
     assert [s.level for s in load_severity_scale()] == [1, 2, 3, 4]
-    keywords = load_keywords()
-    assert keywords and all(k.floor in LEVELS for k in keywords)
-    assert {k.group for k in keywords} >= {"fire_smoke", "serious_injury", "injury", "fuel_leak",
-                                           "aircraft_damage", "jet_blast", "near_miss", "equipment_fault"}
+    rules = load_consistency_rules()
+    assert rules and all(r.floor in LEVELS for r in rules)
+    # the rules look only at the AI reader's fixed answers
+    assert {r.field for r in rules} <= {"injury_mentioned", "damage_mentioned", "incident_type"}
 
 
 def test_other_reference_tables():
     assert len(load_required_details()) == 7
     phrases = load_instruction_phrases()
     assert "ignore your rules" in phrases and all(p == p.lower() for p in phrases)
-
-
-def test_a_bad_floor_in_the_keyword_table_is_refused(tmp_path, monkeypatch):
-    import shutil
-    import pytest
-    import config
-    ref = tmp_path / "reference"
-    shutil.copytree(config.REFERENCE_DIR, ref)
-    (ref / "keyword_table.csv").write_text("group,keyword,floor,reason\ninjury,hurt,7,x\n", encoding="utf-8")
-    monkeypatch.setattr(config, "REFERENCE_DIR", ref)
-    with pytest.raises(ValueError):
-        load_keywords()

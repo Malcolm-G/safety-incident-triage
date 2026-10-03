@@ -23,7 +23,7 @@ def md_escape(value) -> str:
 # ---------- small helpers ----------
 
 def priority_label(t: Triage) -> str:
-    return text.BAND_NEEDS_PERSON if t.failed else text.BAND_NAMES[t.final_severity]
+    return text.BAND_NEEDS_PERSON if t.needs_person else text.BAND_NAMES[t.final_severity]
 
 
 def ai_label(t: Triage, ref: Reference) -> str:
