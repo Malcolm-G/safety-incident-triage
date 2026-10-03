@@ -1,14 +1,14 @@
 """Review priority and queue order. Plain code only: the AI reader never sets these.
 
 Rules, in short:
-  * final severity = the higher of the AI reader's suggestion and the minimum from the check on its own answers
-    (code only ever raises);
-  * if there is no usable answer, or the report text tries to give the reader instructions, the report goes to
+  * final severity = the higher of the AI reader's rating and the minimum from the fixed flag list
+    (the code only ever confirms or raises);
+  * if there is no usable answer, or the report is aimed at the reader with instructions, the report goes to
     the TOP (severity 4) as "needs a person now", never to "low";
-  * the queue is ordered: highest severity, then needs-a-person, then disagreements, then most details missing.
+  * the queue is ordered: highest severity, then needs-a-person, then raised, then most details missing.
 """
 from triage import text
-from triage.consistency import check_reading
+from triage.escalation import check_flags
 from triage.loader import Report
 from triage.models import Failure, IncidentReading, Outcome, Triage
 from triage.reference import Reference
@@ -18,14 +18,14 @@ TOP = 4
 
 
 def final_severity(suggested: int | None, floor: int) -> int:
-    """The review priority. Code can only RAISE the AI reader's suggestion. No usable answer means the top."""
+    """The review priority. Code can only RAISE the AI reader's rating. No usable answer means the top."""
     if suggested is None:
         return TOP
     return max(suggested, floor)
 
 
 def sort_key(t: Triage) -> tuple:
-    return (-t.final_severity, not t.needs_person, not t.disagree, -t.missing_count, t.report_id)
+    return (-t.final_severity, not t.needs_person, not t.raised, -t.missing_count, t.report_id)
 
 
 def triage_report(report: Report, outcome: Outcome, ref: Reference, text_read: TextRead | None = None) -> Triage:
@@ -34,36 +34,40 @@ def triage_report(report: Report, outcome: Outcome, ref: Reference, text_read: T
     reading: IncidentReading | None = None if failure else outcome
     suggested = reading.suggested_severity if reading else None
 
-    consistency = check_reading(reading, ref.consistency) if reading else None
-    floor = consistency.floor if consistency else 0
+    escalation = check_flags(reading, ref.hazard_flags) if reading else None
+    floor = escalation.floor if escalation else 0
     final = final_severity(suggested, floor)
-    if text_read.instruction_like:
+    instruction_like = text_read.instruction_like or bool(escalation and escalation.needs_person)
+    if instruction_like:
         final = TOP                      # the reader's answer cannot be trusted for this report
+    raised = bool(reading) and floor > suggested
 
-    reasons: list[str] = []
-    disagree = False
+    # the clear reasons this report is where it is
+    why: list[str] = []
     if failure:
-        reasons.append(text.FAILURE_REASONS[failure.value])
-    elif floor > suggested:
-        disagree = True
-        why = " ".join(dict.fromkeys(text.CONSISTENCY_REASONS[r] for r in consistency.deciding))
-        reasons.append(text.REASON_RAISED.format(suggested=ref.scale[suggested], final=ref.scale[floor], why=why))
-    else:
-        reasons.append(text.REASON_AGREE.format(severity=ref.scale[suggested]))
-    if text_read.instruction_like:
-        reasons.append(text.REASON_INSTRUCTION)
+        why.append(text.FAILURE_REASONS[failure.value])
+    if instruction_like:
+        why.append(text.REASON_INSTRUCTION)
+    flags = escalation.flags if escalation else ()
+    shown = [text.FLAG_LABELS[f] for f in flags if not ref.hazard_flags[f].needs_person]
+    why.extend(shown)
+    if reading and not shown and not instruction_like:
+        why.append(reading.rating_reason)      # nothing on the list was found: the AI reader's own reason
+
+    notes: list[str] = []
     if text_read.very_short:
-        reasons.append(text.REASON_SHORT)
+        notes.append(text.NOTE_SHORT)
     missing = tuple(reading.missing_details) if reading else ()
     if missing:
-        reasons.append(text.REASON_MISSING.format(items=", ".join(ref.details.get(m, m) for m in missing)))
+        notes.append(text.NOTE_MISSING.format(items=", ".join(ref.details.get(m, m) for m in missing)))
 
     type_id = reading.incident_type if reading else "other"
     return Triage(
         report_id=report.report_id, reading=reading, failure=failure, suggested_severity=suggested,
-        floor=floor, final_severity=final, disagree=disagree, instruction_like=text_read.instruction_like,
+        floor=floor, final_severity=final, raised=raised, instruction_like=instruction_like, flags=tuple(flags),
         missing=missing, incomplete=bool(missing) or text_read.very_short, very_short=text_read.very_short,
-        reasons=tuple(reasons), checklist=tuple(ref.checklists.get(type_id, ref.checklists.get("other", []))),
+        why=tuple(why), notes=tuple(notes),
+        checklist=tuple(ref.checklists.get(type_id, ref.checklists.get("other", []))),
     )
 
 

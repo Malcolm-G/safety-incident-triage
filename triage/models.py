@@ -1,7 +1,8 @@
 """The AI reader's fixed fields, and the result types the rules produce.
 
 IncidentReading is the ONLY thing the AI reader may return. It has no field for advice, an action,
-a priority or a notification, and extra fields are refused.
+a priority or a notification, and extra fields are refused. Its flags come from a fixed list
+(data/reference/hazard_flags.csv); the code checks that list and can only raise a severity.
 """
 from dataclasses import dataclass
 from enum import Enum
@@ -14,7 +15,11 @@ IncidentTypeId = Literal[
     "foreign_object_debris", "equipment_fault", "jet_blast", "other",
 ]
 DetailId = Literal["who", "where", "when", "what_happened", "injury_stated", "damage_stated", "action_taken"]
-YesNoUnclear = Literal["yes", "no", "unclear"]
+HazardFlagId = Literal[
+    "serious_injury", "fire_or_smoke", "someone_hurt", "aircraft_damaged", "touched_aircraft",
+    "moved_by_jet_blast", "fuel_leaking", "property_damaged", "injury_unclear", "nearly_struck",
+    "instructions_to_reader",
+]
 
 
 class IncidentReading(BaseModel):
@@ -23,26 +28,26 @@ class IncidentReading(BaseModel):
     report_id: str
     incident_type: IncidentTypeId
     suggested_severity: Literal[1, 2, 3, 4]
+    rating_reason: str                      # one sentence: why this rating
+    hazard_flags: list[HazardFlagId]        # things found, from the fixed list (empty if none)
     missing_details: list[DetailId]
-    injury_mentioned: YesNoUnclear
-    damage_mentioned: YesNoUnclear
-    summary: str
+    summary: str                            # one sentence: what happened
 
-    @field_validator("summary")
+    @field_validator("rating_reason", "summary")
     @classmethod
     def _one_short_sentence(cls, v: str) -> str:
         v = v.strip()
         if not v:
-            raise ValueError("summary must not be empty")
+            raise ValueError("must not be empty")
         if len(v) > 300:
-            raise ValueError("summary must be at most 300 characters")
+            raise ValueError("must be at most 300 characters")
         return v
 
-    @field_validator("missing_details")
+    @field_validator("missing_details", "hazard_flags")
     @classmethod
     def _no_repeats(cls, v: list[str]) -> list[str]:
         if len(set(v)) != len(v):
-            raise ValueError("missing_details must not repeat an item")
+            raise ValueError("must not repeat an item")
         return v
 
 
@@ -64,17 +69,19 @@ Outcome = IncidentReading | Failure
 class Triage:
     """The computed result for one report. Frozen: nothing, including a reviewer, can change it."""
     report_id: str
-    reading: IncidentReading | None     # what the AI reader suggested (None if it failed)
+    reading: IncidentReading | None     # what the AI reader said (None if it failed)
     failure: Failure | None
     suggested_severity: int | None
-    floor: int                          # minimum from the check on the AI reader's own answers, 0 if none
+    floor: int                          # minimum from the fixed flag list, 0 if no flag applies
     final_severity: int                 # the review priority: 1 to 4 (needs-a-person reports are always 4)
-    disagree: bool                      # the AI reader's answers and its severity do not agree
-    instruction_like: bool              # the text looks like instructions aimed at the reader
+    raised: bool                        # the fixed list raised the AI reader's severity
+    instruction_like: bool              # the text (or the AI reader) says it aims instructions at the reader
+    flags: tuple[str, ...]              # the flags the AI reader found
     missing: tuple[str, ...]            # missing detail ids, as marked by the AI reader
     incomplete: bool
     very_short: bool
-    reasons: tuple[str, ...]            # plain-language reasons, in order
+    why: tuple[str, ...]                # the clear reasons this report is where it is
+    notes: tuple[str, ...]              # other notes: very short, details missing
     checklist: tuple[str, ...]          # generic reviewer checklist for the incident type
 
     @property
@@ -83,8 +90,8 @@ class Triage:
 
     @property
     def needs_person(self) -> bool:
-        """The AI reader's answer cannot be trusted for this report (no usable answer, or planted
-        instructions in the text), so a person must read it now."""
+        """The AI reader's answer cannot be trusted for this report (no usable answer, or text aimed at the
+        reader), so a person must read it now."""
         return self.failed or self.instruction_like
 
     @property

@@ -17,7 +17,7 @@ class Check:
 def _order_problems(queue: list[Triage]) -> int:
     """Count neighbours that are in the wrong order, spelling the ordering rule out by hand."""
     def rank(t: Triage):
-        return (-t.final_severity, 0 if t.needs_person else 1, 0 if t.disagree else 1, -t.missing_count, t.report_id)
+        return (-t.final_severity, 0 if t.needs_person else 1, 0 if t.raised else 1, -t.missing_count, t.report_id)
     return sum(1 for a, b in zip(queue, queue[1:]) if rank(a) > rank(b))
 
 

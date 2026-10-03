@@ -14,7 +14,7 @@ NOTHING_SENT = "Nothing is sent or closed."
 ALLOWED_SENTENCES = (NOTHING_SENT,)
 
 SYNTHETIC_BANNER = "SYNTHETIC DATA. Every report here is invented for demonstration. Nothing is real."
-ILLUSTRATIVE_NOTE = ("ILLUSTRATIVE ASSUMPTIONS. The severity scale, the checks on the AI reader's answers and the checklists "
+ILLUSTRATIVE_NOTE = ("ILLUSTRATIVE ASSUMPTIONS. The severity scale, the fixed list of flags and the checklists "
                      "in this app are examples. They are not company policy or regulation.")
 REVIEW_AGAINST_POLICY = "Items are flagged for review against your own company's policy."
 FIXTURE_BANNER = ("HAND-WRITTEN EXAMPLE ANSWERS. The AI reader's answers on this page were written by hand "
@@ -46,7 +46,7 @@ ALT_TYPES = "The incident types"
 BAND_NAMES = {4: "Read now", 3: "High", 2: "Medium", 1: "Low"}
 BAND_NEEDS_PERSON = "Read now: needs a person"
 QUEUE_HEADING = "Review queue"
-QUEUE_INTRO = "Most urgent first. The order is worked out by fixed rules from the AI reader's answers."
+QUEUE_INTRO = "Most urgent first, in an order worked out by fixed rules."
 COL_ORDER = "Order"
 COL_REPORT = "Report"
 COL_PRIORITY = "Review priority"
@@ -63,48 +63,49 @@ ALT_QUEUE = "The review queue, most urgent first"
 
 # ---------- report card ----------
 OPEN_REPORT_LABEL = "Open a report"
-CARD_AI_HEADING = "What the AI reader suggested"
-CARD_RULES_HEADING = "Review priority (set by the rules)"
+CARD_AI_HEADING = "What the AI reader said"
+CARD_RULES_HEADING = "Review priority"
 CARD_REVIEWER_HEADING = "Reviewer's decision"
 CARD_LOOKS_LIKE = "Looks like"
-CARD_SEVERITY = "Suggested severity"
-CARD_HURT = "Anyone hurt?"
-CARD_DAMAGE = "Anything damaged?"
+CARD_RATING = "Rating"
+CARD_REASON_GIVEN = "Reason given"
+CARD_FOUND = "What it found"
+NOTHING_FOUND = "Nothing from the list."
 CARD_SUMMARY = "In one sentence"
-YES_NO = {"yes": "Yes", "no": "No", "unclear": "Unclear"}
+CARD_WHY = "Why it is here"
+RAISED_NOTE = "Raised from {suggested} to {final}."
 MISSING_HEADING = "What is missing"
 NOTHING_MISSING = "The AI reader did not mark anything as missing."
 CHECKLIST_HEADING = "Generic reviewer checklist, not instructions"
 REPORT_TEXT_HEADING = "The report"
 NO_ANSWER_CARD = "There is no usable answer from the AI reader for this report."
 
-# ---------- reasons the rules give (plain words) ----------
-REASON_AGREE = "The AI reader's suggestion stands: {severity}."
-REASON_RAISED = "The AI reader suggested {suggested}. Its own answers raised it to {final}. {why}"
-# Why a check on the AI reader's own answers raised a severity (one line per rule in consistency_rules.csv).
-CONSISTENCY_REASONS = {
-    "injury_yes": "The AI reader says someone was hurt.",
-    "injury_unclear": "The AI reader is not sure whether someone was hurt.",
-    "type_aircraft_contact": "Something touched an aircraft.",
-    "type_jet_blast": "Jet blast can move people and equipment.",
-    "type_fuel_spill": "Spilled fuel is a hazard that needs a look.",
-    "type_near_miss": "A near miss needs a look even when nobody was hurt.",
-    "damage_yes": "The AI reader says something was damaged.",
+# ---------- plain reasons ----------
+# One plain label for each flag in data/reference/hazard_flags.csv. These are the reasons shown to a person.
+FLAG_LABELS = {
+    "serious_injury": "Serious injury",
+    "fire_or_smoke": "Fire or smoke",
+    "someone_hurt": "Someone was hurt",
+    "aircraft_damaged": "An aircraft was damaged",
+    "touched_aircraft": "Something touched an aircraft",
+    "moved_by_jet_blast": "People or equipment moved by jet blast",
+    "fuel_leaking": "Fuel leaked or spilled",
+    "property_damaged": "Equipment or property was damaged",
+    "injury_unclear": "Not sure whether anyone was hurt",
+    "nearly_struck": "Something was nearly hit",
+    "instructions_to_reader": "Text aimed at the reader",
 }
-REASON_INSTRUCTION = ("This report contains text that looks like instructions to the reader, so the AI reader's "
-                      "answer cannot be trusted for it. Please read it yourself.")
-REASON_SHORT = "This is a very short report, so details are likely missing."
-REASON_MISSING = "Details marked as missing: {items}."
+REASON_INSTRUCTION = "The report contains instructions aimed at the reader. A person should read it now."
+NOTE_SHORT = "Very short report: details are likely missing."
+NOTE_MISSING = "Details marked as missing: {items}."
 FAILURE_REASONS = {
-    "invalid_answer": "The AI reader's answer could not be used, so a person should read this report now.",
-    "wrong_report": "The AI reader's answer was for a different report, so a person should read this one now.",
-    "timed_out": "The AI reader took too long, so a person should read this report now.",
-    "refused": "The AI reader did not give an answer, so a person should read this report now.",
-    "service_error": "The AI reader could not be reached, so a person should read this report now.",
-    "no_saved_answer": "There is no saved answer for this report, so a person should read it now.",
+    "invalid_answer": "The AI reader's answer could not be used. A person should read this report now.",
+    "wrong_report": "The AI reader's answer was for a different report. A person should read this one now.",
+    "timed_out": "The AI reader took too long. A person should read this report now.",
+    "refused": "The AI reader did not give an answer. A person should read this report now.",
+    "service_error": "The AI reader could not be reached. A person should read this report now.",
+    "no_saved_answer": "There is no saved answer for this report. A person should read it now.",
 }
-FLAG_DISAGREE = "The AI reader's answers and its severity disagree"
-FLAG_INSTRUCTION = "Contains instruction-like text"
 
 # ---------- quality checks ----------
 CHECKS_HEADING = "Quality checks"

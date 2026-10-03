@@ -1,0 +1,12 @@
+flag_id,floor,needs_person,definition
+serious_injury,4,no,"Someone is seriously hurt: an ambulance or hospital, unconscious or fainted, a suspected broken bone, heavy bleeding, or a crush injury."
+fire_or_smoke,4,no,"There is or was a real fire, flames or smoke. A smell of burning with no smoke or flames does not count. 'No fire' does not count."
+someone_hurt,3,no,"Someone was hurt, even slightly, or reported pain. 'No injuries' and 'nobody was hurt' do not count."
+aircraft_damaged,3,no,"An aircraft was damaged, even slightly (a dent, scrape or scuff)."
+touched_aircraft,3,no,"A vehicle, cart, person or piece of equipment touched or hit an aircraft."
+moved_by_jet_blast,3,no,"Jet blast or engine blast moved people or equipment."
+fuel_leaking,2,no,"Fuel leaked or spilled."
+property_damaged,2,no,"Equipment, a vehicle or a building (not an aircraft) was damaged."
+injury_unclear,2,no,"The report does not make clear whether someone was hurt."
+nearly_struck,2,no,"A person, vehicle or aircraft was nearly hit."
+instructions_to_reader,4,yes,"The report text contains instructions aimed at whoever reads it, for example to ignore rules, change a rating or hide something."

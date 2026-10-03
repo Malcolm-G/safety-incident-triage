@@ -85,12 +85,12 @@ def test_the_computed_result_is_frozen(top):
 
 
 def test_decisions_do_not_change_the_computed_result_or_the_queue_order(queue):
-    before = [(t.report_id, t.final_severity, t.reasons, t.disagree) for t in queue]
+    before = [(t.report_id, t.final_severity, t.why, t.raised) for t in queue]
     log = DecisionLog()
     for t in queue:
         log.add(decide(t, "Sam Lee", CHANGE, severity=1 if t.final_severity > 1 else 4,
                        reason="Reviewer's own view of this one."))
-    after = [(t.report_id, t.final_severity, t.reasons, t.disagree) for t in queue]
+    after = [(t.report_id, t.final_severity, t.why, t.raised) for t in queue]
     assert before == after
     assert all(log.status(t.report_id) in {text.STATUS_OVERRULED, text.STATUS_RAISED} for t in queue)
 

@@ -43,6 +43,19 @@ def test_the_queue_has_twenty_reports_failure_first(at):
     assert plain(rows.iloc[0][text.COL_AI]) == text.AI_NO_ANSWER
 
 
+def test_why_it_is_here_gives_plain_reasons_not_a_story_about_who_decided(at):
+    rows = queue_rows(at)
+    why = {plain(r[text.COL_REPORT]): plain(r[text.COL_WHY]) for _, r in rows.iterrows()}
+    assert why["SYN-002"] == "Someone was hurt"
+    assert why["SYN-016"] == "Serious injury | Someone was hurt"
+    assert why["SYN-004"] == "Fuel leaked or spilled"
+    assert why["SYN-006"] == text.FAILURE_REASONS["timed_out"]
+    assert why["SYN-014"] == text.REASON_INSTRUCTION
+    for report_id, line in why.items():
+        for narration in ("AI reader suggested", "Its own answers", "raised it", "disagree", "the rules"):
+            assert narration not in line, (report_id, line)
+
+
 def test_the_card_shows_three_separate_things(at):
     shown = " ".join(m.value for m in at.markdown)
     for heading in (text.CARD_AI_HEADING, text.CARD_RULES_HEADING, text.CARD_REVIEWER_HEADING,

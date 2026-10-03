@@ -40,12 +40,8 @@ def reviewer_label(log: DecisionLog, report_id: str, ref: Reference) -> str:
 
 
 def why_label(t: Triage) -> str:
-    parts = [t.reasons[0]]
-    if t.disagree:
-        parts.append(text.FLAG_DISAGREE)
-    if t.instruction_like:
-        parts.append(text.FLAG_INSTRUCTION)
-    return " | ".join(parts)
+    """The clear reasons, for example 'Someone was hurt'. Nothing about who decided what."""
+    return " | ".join(t.why)
 
 
 # ---------- page parts ----------
@@ -115,17 +111,21 @@ def render_card(t: Triage, report: Report, log: DecisionLog, ref: Reference) -> 
         if t.reading:
             r = t.reading
             st.write(f"{text.CARD_LOOKS_LIKE}: {ref.type_names[r.incident_type]}")
-            st.write(f"{text.CARD_SEVERITY}: {ref.scale[r.suggested_severity]} ({r.suggested_severity})")
-            st.write(f"{text.CARD_HURT} {text.YES_NO[r.injury_mentioned]}")
-            st.write(f"{text.CARD_DAMAGE} {text.YES_NO[r.damage_mentioned]}")
+            st.write(f"{text.CARD_RATING}: {ref.scale[r.suggested_severity]} ({r.suggested_severity})")
+            st.text(f"{text.CARD_REASON_GIVEN}: {r.rating_reason}")
+            found = [text.FLAG_LABELS[f] for f in r.hazard_flags]
+            st.text(f"{text.CARD_FOUND}: " + ("; ".join(found) if found else text.NOTHING_FOUND))
             st.text(f"{text.CARD_SUMMARY}: {r.summary}")
         else:
             st.write(text.NO_ANSWER_CARD)
     with c_rules:
         st.markdown(f"**{text.CARD_RULES_HEADING}**")
         st.write(f"{priority_label(t)} ({t.final_severity})")
-        for reason in t.reasons:
-            st.text(reason)
+        if t.raised:
+            st.text(text.RAISED_NOTE.format(suggested=ref.scale[t.suggested_severity], final=ref.scale[t.final_severity]))
+        st.text(f"{text.CARD_WHY}: " + " | ".join(t.why))
+        for note in t.notes:
+            st.text(note)
     with c_rev:
         st.markdown(f"**{text.CARD_REVIEWER_HEADING}**")
         latest = log.latest(t.report_id)

@@ -1,8 +1,0 @@
-rule_id,field,value,floor
-injury_yes,injury_mentioned,yes,3
-injury_unclear,injury_mentioned,unclear,2
-type_aircraft_contact,incident_type,aircraft_contact,3
-type_jet_blast,incident_type,jet_blast,3
-type_fuel_spill,incident_type,fuel_spill,2
-type_near_miss,incident_type,near_miss,2
-damage_yes,damage_mentioned,yes,2
