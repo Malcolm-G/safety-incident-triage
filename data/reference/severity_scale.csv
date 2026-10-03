@@ -1,0 +1,5 @@
+level,name,meaning
+1,Low,"No injury, no damage, and no lasting hazard."
+2,Medium,"A minor hazard, a near miss, or a small problem that needs a look."
+3,High,"An injury, damage, or a hazard that needs prompt attention."
+4,Critical,"A serious injury, a fire, or ongoing danger. Read first."

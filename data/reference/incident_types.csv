@@ -1,0 +1,10 @@
+id,name,description
+aircraft_contact,"Vehicle or equipment contact with aircraft","A vehicle, cart or piece of equipment touched or hit an aircraft."
+manual_handling,"Manual handling injury","Someone was hurt lifting, pushing, pulling or carrying."
+slip_trip_fall,"Slip, trip or fall","Someone slipped, tripped or fell."
+fuel_spill,"Fuel spill","Fuel leaked or spilled."
+near_miss,"Near miss","Something nearly happened but nobody was hurt and nothing was hit."
+foreign_object_debris,"Foreign object debris","A loose item was found where it should not be on the working area."
+equipment_fault,"Equipment fault","A machine or vehicle failed or behaved wrongly."
+jet_blast,"Jet blast","Engine blast moved people or equipment."
+other,"Other","Anything that does not fit the types above."

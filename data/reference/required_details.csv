@@ -1,0 +1,8 @@
+id,label
+who,"Who was involved"
+where,"Where it happened"
+when,"When it happened"
+what_happened,"What happened"
+injury_stated,"Whether anyone was hurt"
+damage_stated,"Whether anything was damaged"
+action_taken,"What was done straight away"

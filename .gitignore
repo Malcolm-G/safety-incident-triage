@@ -1,0 +1,21 @@
+# Secrets
+.env
+.streamlit/secrets.toml
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Browser-test captures and scratch output
+.playwright-mcp/
+scratch/
+
+# Source documents are never committed
+*.pdf
+
+# Editor / OS
+.vscode/
+.DS_Store
+Thumbs.db
