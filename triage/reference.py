@@ -90,3 +90,31 @@ def load_checklists() -> dict[str, list[str]]:
 
 def load_instruction_phrases() -> list[str]:
     return [r["phrase"].lower() for r in _rows("instruction_phrases.csv") if r["phrase"]]
+
+
+@dataclass(frozen=True)
+class Reference:
+    """All the visible tables, loaded once."""
+    scale: dict[int, str]                 # severity level -> name
+    scale_rows: list[SeverityLevel]
+    types: list[IncidentType]
+    type_names: dict[str, str]
+    keywords: list[Keyword]
+    details: dict[str, str]               # detail id -> plain label
+    checklists: dict[str, list[str]]
+    instruction_phrases: list[str]
+
+
+def load_reference() -> Reference:
+    scale_rows = load_severity_scale()
+    types = load_incident_types()
+    return Reference(
+        scale={s.level: s.name for s in scale_rows},
+        scale_rows=scale_rows,
+        types=types,
+        type_names={t.id: t.name for t in types},
+        keywords=load_keywords(),
+        details={d.id: d.label for d in load_required_details()},
+        checklists=load_checklists(),
+        instruction_phrases=load_instruction_phrases(),
+    )

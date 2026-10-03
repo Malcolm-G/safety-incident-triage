@@ -1,0 +1,34 @@
+"""Hand-written example answers for the AI reader (stage P1). NOT real AI output.
+
+Read from data/<dataset>/extractions_fixture.json. An entry is either a reading or {"report_id": ..., "failure": ...}.
+An entry that does not fit the fixed fields becomes a failure, exactly as a bad real answer would.
+"""
+import json
+
+import config
+from pydantic import ValidationError
+
+from triage.models import Failure, IncidentReading, Outcome
+
+
+def load_fixture_outcomes(report_ids: list[str], dataset: str | None = None) -> dict[str, Outcome]:
+    path = config.dataset_dir(dataset or config.DATASET) / "extractions_fixture.json"
+    items = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
+    out: dict[str, Outcome] = {}
+    for item in items:
+        rid = item.get("report_id") if isinstance(item, dict) else None
+        if not isinstance(rid, str):
+            continue
+        if "failure" in item:
+            try:
+                out[rid] = Failure(item["failure"])
+            except ValueError:
+                out[rid] = Failure.invalid_answer
+            continue
+        try:
+            out[rid] = IncidentReading.model_validate(item)
+        except ValidationError:
+            out[rid] = Failure.invalid_answer
+    for rid in report_ids:
+        out.setdefault(rid, Failure.no_saved_answer)
+    return out
