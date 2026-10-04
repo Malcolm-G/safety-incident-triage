@@ -1,18 +1,27 @@
 """Streamlit entry point. Thin: loads data, runs the rules, draws the page."""
+import os
+
 import streamlit as st
 
 import config
 from triage import text
+from triage import live
 from triage.checks import run_checks
 from triage.fixtures import load_fixture_outcomes
 from triage.loader import DatasetMissing, load_info, load_reports
 from triage.priority import build_queue
 from triage.reference import load_reference
 from triage.reviewer import DecisionLog
-from views import (open_report, render_all, render_check_summary, render_panel, render_queue,
-                    render_scale)
+from views import (open_report, render_all, render_check_summary, render_live, render_panel,
+                    render_queue, render_scale)
 
 config.load_dotenv()
+try:                                    # hosted copies keep the key and passcode in the host's secrets
+    for _name in ("ANTHROPIC_API_KEY", "LIVE_PASSCODE"):
+        if _name in st.secrets:
+            os.environ.setdefault(_name, str(st.secrets[_name]))
+except Exception:
+    pass
 st.set_page_config(page_title=text.APP_TITLE, layout="wide")
 st.title(text.APP_TITLE)
 st.write(text.TAGLINE)
@@ -41,8 +50,8 @@ statuses = {r.report_id: log.status(r.report_id) for r in reports}
 render_check_summary(run_checks(reports, queue, statuses))
 
 # Tracked tabs keep the open tab when the page reruns (for example while typing a name).
-tab_queue, tab_all, tab_about = st.tabs([text.TAB_QUEUE, text.TAB_ALL, text.TAB_ABOUT],
-                                        key="main_tabs", on_change="rerun")
+names = [text.TAB_QUEUE, text.TAB_ALL, text.TAB_ABOUT] + ([text.TAB_LIVE] if live.enabled() else [])
+tab_queue, tab_all, tab_about, *tab_live = st.tabs(names, key="main_tabs", on_change="rerun")
 with tab_queue:
     # The first report is open when the page loads. With no report open, the queue uses the full width.
     open_id = st.session_state.setdefault("open_id", queue[0].report_id)
@@ -64,3 +73,6 @@ with tab_all:
     render_all(queue, log, ref)
 with tab_about:
     render_scale(ref)
+if tab_live:
+    with tab_live[0]:
+        render_live(ref)

@@ -163,3 +163,23 @@ DECISION_OVERRULED = "Overruled by {name}: {reason} ({time})"
 DECISION_NEEDS_INFO = "{name} needs more information ({time})"
 HISTORY_HEADING = "Earlier decisions"
 NO_DECISION = "No decision yet."
+
+# ---- live mode ("Add a report") ----
+TAB_LIVE = "Add a report"
+LIVE_PRIVACY = "Do not enter real incident details or personal information. Reports are not saved."
+LIVE_INTRO = "Type or paste an invented report. The AI reader reads it now and the fixed rules set the priority. " + NOTHING_SENT
+LIVE_PASSCODE_LABEL = "Passcode"
+LIVE_UNLOCK = "Unlock"
+LIVE_WRONG_PASSCODE = "That passcode is not right."
+LIVE_LOCKED_OUT = "Too many wrong tries. Reload the page to try again."
+LIVE_REPORT_LABEL = "Report text"
+LIVE_READ_BUTTON = "Read this report"
+LIVE_BANNER = "LIVE RESULT. This report was read just now. It is not saved and it is not in the queue."
+LIVE_CLEAR = "Clear this result"
+LIVE_MESSAGES = {
+    "empty": "Type a report first.",
+    "too_long": "That report is too long. Please keep it under 2000 characters.",
+    "session_limit": "You have reached the limit of 5 reports for this visit.",
+    "day_limit": "The daily limit for live reports has been reached. Please try again tomorrow.",
+    "no_key": "Live reading is not set up on this copy of the page.",
+}

@@ -4,7 +4,7 @@ import re
 import pandas as pd
 import streamlit as st
 
-from triage import reviewer, text
+from triage import live, reviewer, text
 from triage.checks import Check
 from triage.loader import Report
 from triage.models import Triage
@@ -159,18 +159,8 @@ def _box(title: str):
     return box
 
 
-def render_panel(t: Triage, report: Report, log: DecisionLog, ref: Reference) -> None:
-    """The report, in its own bordered boxes, in reading order."""
-    with st.container(border=True):
-        head, close = st.columns([4, 1])
-        head.subheader(t.report_id)
-        close.button(text.CLOSE_BUTTON, key="close_panel", on_click=_close_panel)
-        kind = ref.type_names[t.reading.incident_type] if t.reading else text.AI_NO_ANSWER
-        st.write(f"{priority_label(t)} ({t.final_severity}). {text.LOOKS_LIKE}: {kind}")
-
-    with _box(text.SECTION_REPORT):
-        st.text(report.text)
-
+def _sections(t: Triage, ref: Reference) -> None:
+    """Why it is here, what the AI reader said, what is missing and the checklist, each in its own box."""
     with _box(text.SECTION_WHY):
         for line in t.why:
             st.text(line)
@@ -200,6 +190,21 @@ def render_panel(t: Triage, report: Report, log: DecisionLog, ref: Reference) ->
     with _box(text.SECTION_CHECKLIST):
         for item in t.checklist:
             st.text(item)
+
+
+def render_panel(t: Triage, report: Report, log: DecisionLog, ref: Reference) -> None:
+    """The report, in its own bordered boxes, in reading order."""
+    with st.container(border=True):
+        head, close = st.columns([4, 1])
+        head.subheader(t.report_id)
+        close.button(text.CLOSE_BUTTON, key="close_panel", on_click=_close_panel)
+        kind = ref.type_names[t.reading.incident_type] if t.reading else text.AI_NO_ANSWER
+        st.write(f"{priority_label(t)} ({t.final_severity}). {text.LOOKS_LIKE}: {kind}")
+
+    with _box(text.SECTION_REPORT):
+        st.text(report.text)
+
+    _sections(t, ref)
 
     with _box(text.SECTION_DECISION):
         latest = log.latest(t.report_id)
@@ -239,3 +244,47 @@ def render_scale(ref: Reference) -> None:
     st.table(pd.DataFrame([{
         text.COLUMN_NAME: t.name, text.COLUMN_DESCRIPTION: t.description,
     } for t in ref.types]).set_index(text.COLUMN_NAME), alt=text.ALT_TYPES)
+
+
+def _run_live(ref: Reference) -> None:
+    """Button callback. The typed text is cleared from the page as soon as it is read."""
+    typed = st.session_state.get("live_text", "")
+    st.session_state["live_text"] = ""
+    st.session_state["live_result"] = live.submit(typed, ref, st.session_state["live"])
+
+
+def _try_unlock() -> None:
+    session = st.session_state["live"]
+    given = st.session_state.get("live_code", "")
+    st.session_state["live_code"] = ""
+    st.session_state["live_unlock_failed"] = not live.unlock(session, given)
+
+
+def render_live(ref: Reference) -> None:
+    st.warning(text.LIVE_PRIVACY)
+    session = st.session_state.setdefault("live", live.LiveSession())
+    if not session.unlocked:
+        if session.locked_out:
+            st.error(text.LIVE_LOCKED_OUT)
+            return
+        st.text_input(text.LIVE_PASSCODE_LABEL, type="password", key="live_code")
+        st.button(text.LIVE_UNLOCK, on_click=_try_unlock)
+        if st.session_state.get("live_unlock_failed"):
+            st.error(text.LIVE_WRONG_PASSCODE)
+        return
+    st.caption(text.LIVE_INTRO)
+    st.text_area(text.LIVE_REPORT_LABEL, key="live_text", max_chars=live.MAX_CHARS)
+    st.button(text.LIVE_READ_BUTTON, type="primary", on_click=_run_live, args=(ref,))
+    result = st.session_state.get("live_result")
+    if result is None:
+        return
+    if result.status != live.OK:
+        st.error(text.LIVE_MESSAGES[result.status])
+        return
+    t = result.triage
+    st.warning(text.LIVE_BANNER)
+    with st.container(border=True):
+        kind = ref.type_names[t.reading.incident_type] if t.reading else text.AI_NO_ANSWER
+        st.write(f"{priority_label(t)} ({t.final_severity}). {text.LOOKS_LIKE}: {kind}")
+    _sections(t, ref)
+    st.button(text.LIVE_CLEAR, on_click=lambda: st.session_state.pop("live_result", None))
