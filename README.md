@@ -4,6 +4,8 @@
 
 This app sorts free-text incident reports from an aircraft ground-handling operation into a review queue, so a safety officer can read the most urgent first. A person confirms everything. Nothing is sent or closed.
 
+Right now it is a **test stage**: reviewers check whether the AI reader rated each report sensibly, and what they find is used to improve the AI reader's instructions before it ranks real reports for officers to deal with. The page has a short key explaining each column.
+
 ## Illustrative only
 **ILLUSTRATIVE ASSUMPTIONS.** The severity scale, the fixed list of flags and the checklists are examples made up for this demonstration. They are not company policy or regulation. Items would be flagged for review against your own company's policy.
 

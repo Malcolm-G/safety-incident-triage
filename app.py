@@ -12,7 +12,7 @@ from triage.loader import DatasetMissing, load_info, load_reports
 from triage.priority import build_queue
 from triage.reference import load_reference
 from triage.reviewer import DecisionLog
-from views import (open_report, render_all, render_check_problem, render_live, render_panel, render_queue,
+from views import (open_report, render_all, render_check_problem, render_key, render_live, render_panel, render_queue,
                     render_scale, render_tally)
 
 config.load_dotenv()
@@ -46,6 +46,7 @@ queue = build_queue(reports, outcomes, ref)
 log = st.session_state.setdefault("decisions", DecisionLog())
 statuses = {r.report_id: log.status(r.report_id) for r in reports}
 render_check_problem(run_checks(reports, queue, statuses))
+render_key()
 
 # Tracked tabs keep the open tab when the page reruns (for example while typing a name).
 names = [text.TAB_QUEUE, text.TAB_ALL, text.TAB_ABOUT] + ([text.TAB_LIVE] if live.enabled() else [])

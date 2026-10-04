@@ -6,7 +6,9 @@ Keeping them in one file lets a test check the wording of everything the app say
 
 # ---------- page-level ----------
 APP_TITLE = "Safety incident triage"
-TAGLINE = ("This page sorts incident reports so a safety officer can read the most urgent first. "
+TAGLINE = ("This page sorts incident reports, most urgent first. For now it is a test stage. "
+           "Reviewers check whether the AI reader rated each report sensibly. What they find is used to improve "
+           "the AI reader's instructions, before it ranks real reports for officers to deal with. "
            "A person confirms everything.")
 
 # The one sentence about what the app never does. It is allowed by exact match in the wording test.
@@ -46,7 +48,7 @@ COL_ORDER = "Order"
 COL_REPORT = "Report"
 COL_PRIORITY = "Review priority"
 COL_AI = "AI suggested"
-COL_WHY = "Why it is here"
+COL_WHY = "Reason for the rating"
 COL_DETAILS = "Details"
 COL_REVIEWER = "Reviewer"
 COL_TYPE = "Looks like"
@@ -60,7 +62,7 @@ ALT_QUEUE = "The review queue, most urgent first"
 PANEL_HINT = "Click any row to open its report beside the table."
 CLOSE_BUTTON = "Close"
 SECTION_REPORT = "The report"
-SECTION_WHY = "Why it is here"
+SECTION_WHY = "Reason for the rating"
 SECTION_AI = "What the AI reader said"
 SECTION_MISSING = "What is missing"
 SECTION_CHECKLIST = "Generic reviewer checklist, not instructions"
@@ -196,3 +198,16 @@ DOWNLOAD_BUTTON = "Download decisions (CSV file)"
 CSV_HEADERS = ("Report", "Review priority", "AI rating", "Decision", "Priority chosen by reviewer", "Agreed",
                "Reviewer", "Reason", "Time")
 AGREED_YES, AGREED_NO, AGREED_UNDECIDED = "yes", "no", "undecided"
+
+# ---- the key ----
+KEY_HEADING = "Key: what the words mean"
+KEY_ITEMS = (
+    (COL_PRIORITY, "How urgent the report is, worked out by fixed rules: Read now, High, Medium or Low. "
+                   "Needs a person means the AI reader could not be trusted on this report, so someone should read it first."),
+    (COL_WHY, "The facts that set the priority, for example someone was hurt, each with a short detail from the report."),
+    (COL_DETAILS, "A missing detail is a fact the report does not state: who, where, when, what happened, "
+                  "whether anyone was hurt, whether anything was damaged, or what was done straight away. "
+                  "Complete means none are missing."),
+    (COL_REVIEWER, "What a person decided: Confirmed, Raised, Overruled (lowered, with a reason) or Needs more information. "
+                   "Waiting for a reviewer means nobody has looked yet."),
+)

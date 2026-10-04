@@ -330,3 +330,15 @@ def test_saving_a_decision_updates_the_tally_and_enables_the_download(at):
     at.run(timeout=60)
     assert any(c.value.startswith("Reviewed 1 of 28: confirmed 1, raised 0, lowered 0, needs more information 0.") for c in at.caption)
     assert at.get("download_button")[0].proto.disabled is False
+
+
+# ---- the key and the purpose ----
+
+def test_the_page_says_what_it_is_for_right_now_and_has_a_key(at):
+    purpose = " ".join(w.value for w in at.markdown[:3])
+    assert "test stage" in purpose and "improve" in purpose and "officers" in purpose
+    assert text.KEY_HEADING in [e.label for e in at.expander]
+    key = " ".join(m.value for m in at.markdown)
+    for term in (text.COL_PRIORITY, text.COL_WHY, text.COL_DETAILS, text.COL_REVIEWER):
+        assert f"**{term}**" in key
+    assert "Why it is here" not in str(vars(text))

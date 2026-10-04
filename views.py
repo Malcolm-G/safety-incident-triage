@@ -67,6 +67,12 @@ def render_check_problem(checks: list[Check]) -> None:
         st.error(text.CHECKS_FAILED)
 
 
+def render_key() -> None:
+    with st.expander(text.KEY_HEADING):
+        for term, meaning in text.KEY_ITEMS:
+            st.markdown(f"**{term}**: {meaning}")
+
+
 def render_tally(queue: list[Triage], log: DecisionLog, ref: Reference) -> None:
     n = reviewer.tally(log, queue)
     line, button = st.columns([4, 1], vertical_alignment="center")
@@ -166,7 +172,7 @@ def _box(title: str):
 
 
 def _sections(t: Triage, ref: Reference, show_summary: bool = True) -> None:
-    """Why it is here, what the AI reader said, what is missing and the checklist. Each fact appears once."""
+    """Reason for the rating, what the AI reader said, what is missing and the checklist. Each fact appears once."""
     with _box(text.SECTION_WHY):
         lines = [line for line in t.why if not (t.reading and line == t.reading.rating_reason)]
         for line in lines or [text.NO_FLAGS_NOTE]:
