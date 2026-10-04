@@ -6,6 +6,7 @@
 Results are written as they finish and a rerun with the same --tag resumes. Report text is never printed.
 """
 import argparse
+import hashlib
 import json
 import random
 import time
@@ -17,6 +18,7 @@ from triage import reader
 from triage.fixtures import outcome_from_json
 from triage.models import Failure
 from triage.labels import load_labels
+from triage.prompt import build_system_prompt
 from triage.loader import load_reports
 from triage.priority import triage_report
 from triage.reference import load_reference
@@ -74,6 +76,12 @@ def main():
     labels = [l for l in labels if a.final or l.split == "tuning"]
     ids = {l.report_id for l in labels}
     OUT.mkdir(parents=True, exist_ok=True)
+    if a.final:                                     # everything that must stay frozen, fingerprinted and logged
+        files = ["hazard_flags.csv", "severity_scale.csv", "checklists.csv", "incident_types.csv", "required_details.csv"]
+        fp = {"model": a.model, "prompt": hashlib.sha256(build_system_prompt(ref).encode()).hexdigest()[:12],
+              **{f: hashlib.sha256((config.REFERENCE_DIR / f).read_bytes()).hexdigest()[:12] for f in files}}
+        (OUT / f"{a.tag}_frozen.json").write_text(json.dumps(fp, indent=1), encoding="utf-8")
+        print("frozen:", fp)
     path = OUT / f"{a.tag}.jsonl"
     rows = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines()] if path.exists() else []
     done = {(r["report_id"], r["repeat"]) for r in rows}
