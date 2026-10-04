@@ -172,18 +172,15 @@ def _sections(t: Triage, ref: Reference) -> None:
     with _box(text.SECTION_AI):
         if t.reading:
             r = t.reading
-            st.text(f"{text.CARD_RATING}: {ref.scale[r.suggested_severity]} ({r.suggested_severity})")
-            st.text(f"{text.CARD_REASON_GIVEN}: {r.rating_reason}")
-            found = [text.WHY_LINE.format(label=text.FLAG_LABELS[f.flag], detail=f.detail) for f in r.hazard_flags]
-            st.text(f"{text.CARD_FOUND}: " + ("; ".join(found) if found else text.NOTHING_FOUND))
+            st.text(f"{text.CARD_RATING}: {ref.scale[r.suggested_severity]} ({r.suggested_severity}). "
+                    f"{text.CARD_REASON_GIVEN}: {r.rating_reason}")
             st.text(f"{text.CARD_SUMMARY}: {r.summary}")
         else:
             st.text(text.NO_ANSWER_CARD)
 
     with _box(text.SECTION_MISSING):
         if t.missing:
-            for m in t.missing:
-                st.text(ref.details.get(m, m))
+            st.text("; ".join(ref.details.get(m, m) for m in t.missing))
         else:
             st.text(text.NOTHING_MISSING)
 
@@ -253,6 +250,10 @@ def _run_live(ref: Reference) -> None:
     st.session_state["live_result"] = live.submit(typed, ref, st.session_state["live"])
 
 
+def _use_sample() -> None:
+    st.session_state["live_text"] = text.LIVE_SAMPLES[st.session_state["live_sample"]]
+
+
 def _try_unlock() -> None:
     session = st.session_state["live"]
     given = st.session_state.get("live_code", "")
@@ -273,6 +274,9 @@ def render_live(ref: Reference) -> None:
             st.error(text.LIVE_WRONG_PASSCODE)
         return
     st.caption(text.LIVE_INTRO)
+    pick, use = st.columns([3, 1], vertical_alignment="bottom")
+    pick.selectbox(text.LIVE_SAMPLE_LABEL, list(text.LIVE_SAMPLES), key="live_sample")
+    use.button(text.LIVE_SAMPLE_USE, on_click=_use_sample)
     st.text_area(text.LIVE_REPORT_LABEL, key="live_text", max_chars=live.MAX_CHARS)
     st.button(text.LIVE_READ_BUTTON, type="primary", on_click=_run_live, args=(ref,))
     result = st.session_state.get("live_result")

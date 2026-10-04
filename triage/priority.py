@@ -61,8 +61,6 @@ def triage_report(report: Report, outcome: Outcome, ref: Reference, text_read: T
     if text_read.very_short:
         notes.append(text.NOTE_SHORT)
     missing = tuple(reading.missing_details) if reading else ()
-    if missing:
-        notes.append(text.NOTE_MISSING.format(items=", ".join(ref.details.get(m, m) for m in missing)))
 
     type_id = reading.incident_type if reading else "other"
     return Triage(

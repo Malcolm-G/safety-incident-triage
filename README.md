@@ -15,8 +15,11 @@ This app sorts free-text incident reports from an aircraft ground-handling opera
 - A reviewer panel. Lowering a priority needs a written reason. A decision never replaces the computed result, and a lowered item stays visible as "Overruled by NAME: REASON".
 - A chart of reports by review priority, and four quality checks.
 
+## Where it would fit in a company
+A sensible first phase: reviewers read the queue and check whether each report was rated appropriately. Every confirm or change is evidence on whether the AI reader's instructions and the fixed rules work, before anyone relies on the queue. Reviewers stay in charge throughout. In this demo, decisions are kept only while the page is open, so it shows the step but does not yet collect that evidence.
+
 ## Live mode (optional)
-If the host sets a passcode, an "Add a report" tab appears. After the passcode, a person can paste an invented report and the AI reader reads it now. The tab says: "Do not enter real incident details or personal information. Reports are not saved."
+If the host sets a passcode, an "Add a report" tab appears. After the passcode, a person can pick a sample or paste an invented report and the AI reader reads it now. The tab says: "Do not enter real incident details or personal information. Reports are not saved."
 - Limits: 2000 characters per report, 5 reports per visit, 100 a day for the whole app, and 5 wrong passcode tries per visit.
 - The typed text goes only to the reader. It is cleared from the page as soon as it is read, and it is not written to a file, a log or an error message. A test checks this. The result stays on screen until you leave the page or press Clear.
 - The result is not added to the queue. Nothing is sent or closed.

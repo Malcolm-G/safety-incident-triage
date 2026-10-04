@@ -223,10 +223,11 @@ def bare_triage(n):
 
 # ---- required details ----
 
-def test_missing_details_are_counted_and_listed_in_plain_words(triage_of):
+def test_missing_details_are_counted_and_listed_in_plain_words(triage_of, ref):
     t = triage_of("SYN-010", reading("SYN-010", 1, "near_miss", missing=["who", "where", "when"]))
     assert t.missing_count == 3 and t.incomplete
-    assert any("Who was involved" in n and "Where it happened" in n for n in t.notes)
+    assert [ref.details[m] for m in t.missing] == ["Who was involved", "Where it happened", "When it happened"]
+    assert t.notes == ()                                  # shown once, in its own box, not repeated as a note
 
 
 def test_a_complete_report_is_not_incomplete(triage_of):

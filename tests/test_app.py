@@ -105,7 +105,8 @@ def test_the_panel_shows_every_detail_of_the_reason_and_what_the_AI_said(at):
     texts = [t.value for t in at.text]
     assert "Someone was hurt: a loader hurt his lower back lifting a heavy bag" in texts
     assert text.RAISED_NOTE.format(suggested="Low", final="High") in texts
-    assert any(t.startswith(f"{text.CARD_REASON_GIVEN}: The writer calls it a minor strain.") for t in texts)
+    assert any(f"{text.CARD_REASON_GIVEN}: The writer calls it a minor strain." in t for t in texts)
+    assert not any(t.startswith("What it found") for t in texts)          # the flags are shown once, under why it is here
 
 
 def test_clicking_any_cell_of_a_row_opens_it(at):
@@ -257,3 +258,15 @@ def test_every_saved_answer_is_valid_and_covers_every_report(reports):
     from triage.models import Failure
     got = load_fixture_outcomes([r.report_id for r in reports], filename="ai_answers.json")
     assert len(got) == 28 and not any(isinstance(v, Failure) for v in got.values())
+
+
+def test_a_sample_report_can_be_dropped_into_the_live_box(monkeypatch):
+    from tests.test_live import live_app
+    app = live_app(monkeypatch)
+    app.text_input(key="live_code").set_value("open-sesame")
+    [b for b in app.button if b.label == text.LIVE_UNLOCK][0].click()
+    app.run(timeout=60)
+    app.selectbox(key="live_sample").select("Understated: just a scratch")
+    [b for b in app.button if b.label == text.LIVE_SAMPLE_USE][0].click()
+    app.run(timeout=60)
+    assert app.text_area(key="live_text").value == text.LIVE_SAMPLES["Understated: just a scratch"]
