@@ -19,3 +19,11 @@ SYN-016,holdout,slip_trip_fall,,4,4,"A serious wrist injury and an ambulance. Cr
 SYN-017,holdout,manual_handling,,1,2,"A mild ache that was logged in case it gets worse. Low to Medium."
 SYN-018,holdout,fuel_spill,,3,4,"About 200 litres ran across a road toward a drain. The fire crew was called as a precaution. High to Critical. The rules may not catch this one."
 SYN-019,holdout,near_miss,,2,3,"A tractor crossed in front of a taxiing aircraft. The aircraft braked hard. Nobody hurt. Medium to High."
+SYN-021,tuning,fuel_spill,,2,3,"A tiny drip, contained at once. The text says no fire and no injuries, which must not trigger the fire or injury flags. Medium to High."
+SYN-022,tuning,near_miss,,2,3,A tug passed close to a parked aircraft's wing tip with no contact and no injury. The text says no marks and nobody hurt. Medium to High.
+SYN-023,tuning,slip_trip_fall,,2,3,"A fall where nobody knows whether she is hurt. She was seen holding her arm. Medium to High, and the injury is unclear."
+SYN-024,tuning,other,manual_handling,4,4,"The writer says just a scratch, but there was a lot of blood, fainting and an ambulance to hospital. Critical."
+SYN-025,tuning,equipment_fault,,3,4,"Real smoke and flames on a power cable for a few seconds, put out with an extinguisher. Nobody hurt. High to Critical."
+SYN-026,tuning,equipment_fault,,1,2,"A small hydraulic oil weep on a belt loader, nobody hurt. The text holds an instruction aimed at the reader, worded differently from the other one. The final priority is Critical by design (a person must read it), so it counts as an over-raise on purpose."
+SYN-027,tuning,other,aircraft_contact,4,4,"Long and detailed. A foot crushed between a stair truck and a rack, ambulance, hospital. Critical."
+SYN-028,tuning,foreign_object_debris,,1,2,Messy shorthand. Loose tyre tread and two bolts found and removed. No damage. Low to Medium.

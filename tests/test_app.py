@@ -48,12 +48,12 @@ def test_page_shows_banners_checks_and_the_nothing_sent_line(at):
     assert any(s.value == text.CHECKS_ALL_PASSED.format(n=4) for s in at.success)
 
 
-def test_the_queue_is_a_clickable_table_of_twenty_reports_failure_first(at):
+def test_the_queue_is_a_clickable_table_of_all_reports_failure_first(at):
     rows = queue_rows(at)
-    assert len(rows) == 20
+    assert len(rows) == 28
     assert list(rows.columns) == [text.COL_ORDER, text.COL_REPORT, text.COL_PRIORITY, text.COL_WHY,
                                   text.COL_DETAILS, text.COL_REVIEWER]
-    assert rows.iloc[0][text.COL_REPORT] == "SYN-006"
+    assert rows.iloc[0][text.COL_REPORT] == "SYN-026"
     assert rows.iloc[0][text.COL_PRIORITY] == text.BAND_NEEDS_PERSON
 
 
@@ -75,8 +75,8 @@ def test_why_it_is_here_gives_a_clear_reason_with_a_little_detail_not_a_story(at
 # ---- click a row: the report opens in a panel ----
 
 def test_the_first_report_is_open_when_the_page_loads(at):
-    assert opened_report(at) == "SYN-006"
-    assert at.session_state["open_id"] == "SYN-006"
+    assert opened_report(at) == "SYN-026"
+    assert at.session_state["open_id"] == "SYN-026"
 
 
 def test_the_panel_has_its_sections_in_reading_order_each_in_a_box(at):
@@ -91,7 +91,7 @@ def test_the_panel_has_its_sections_in_reading_order_each_in_a_box(at):
 
 
 def test_clicking_another_row_opens_that_report(at):
-    at = click_row(at, 2)
+    at = click_row(at, 3)
     assert not at.exception
     assert opened_report(at) == "SYN-016"
     assert any("badly hurt his wrist" in t.value for t in at.text)
@@ -99,7 +99,7 @@ def test_clicking_another_row_opens_that_report(at):
 
 
 def test_the_panel_shows_every_detail_of_the_reason_and_what_the_AI_said(at):
-    at = click_row(at, 3)                                 # SYN-002
+    at = click_row(at, 7)                                 # SYN-002
     assert opened_report(at) == "SYN-002"
     texts = [t.value for t in at.text]
     assert "Someone was hurt: a loader hurt his lower back lifting a heavy bag" in texts
@@ -118,7 +118,7 @@ def test_clicking_any_cell_of_a_row_opens_it(at):
 
 def test_the_open_row_is_shaded(at):
     from views import queue_frame
-    assert at.dataframe[0].value.iloc[0][text.COL_REPORT] == "SYN-006"
+    assert at.dataframe[0].value.iloc[0][text.COL_REPORT] == "SYN-026"
     import views, inspect
     assert "background-color" in inspect.getsource(views.queue_frame)
 
@@ -130,7 +130,7 @@ def test_the_close_button_hides_the_panel_and_clears_the_selection(at):
     assert opened_report(at) is None
     assert at.session_state["open_id"] is None and at.session_state["queue_gen"] == 1
     assert not [b for b in at.button if b.label == text.CLOSE_BUTTON]
-    assert len(queue_rows(at)) == 20                      # the queue is still there, now with no row selected
+    assert len(queue_rows(at)) == 28                      # the queue is still there, now with no row selected
     at.run(timeout=60)                                    # a further run changes nothing: no loop
     assert opened_report(at) is None and not at.exception
     at = click_row(at, 4)                                 # clicking a row opens the panel again
@@ -139,7 +139,7 @@ def test_the_close_button_hides_the_panel_and_clears_the_selection(at):
 
 def test_clicking_the_open_row_again_does_not_loop(at):
     at = click_row(at, 0)
-    assert not at.exception and opened_report(at) == "SYN-006"
+    assert not at.exception and opened_report(at) == "SYN-026"
 
 
 def test_clicked_report_id_helper():
@@ -157,7 +157,7 @@ def test_clicked_report_id_helper():
 
 def test_the_all_reports_table_and_chart_are_there(at):
     assert len(at.get("vega_lite_chart")) >= 1
-    assert len(at.table[0].value) == 20
+    assert len(at.table[0].value) == 28
 
 
 def test_tabs_are_tracked_so_a_rerun_keeps_the_open_tab(at):
@@ -166,7 +166,7 @@ def test_tabs_are_tracked_so_a_rerun_keeps_the_open_tab(at):
 
 # ---- reviewer flow, now inside the panel ----
 
-def fill(app, name, action, severity=None, reason="", report="SYN-006"):
+def fill(app, name, action, severity=None, reason="", report="SYN-026"):
     app.text_input(key="reviewer_name").set_value(name)
     app.radio(key=f"action_{report}").set_value(action).run(timeout=60)   # the severity box unlocks after this
     if severity is not None:
@@ -177,7 +177,7 @@ def fill(app, name, action, severity=None, reason="", report="SYN-006"):
 def test_lowering_without_a_reason_is_refused_and_nothing_is_saved(at):
     before = queue_rows(at).copy()
     fill(at, "Sam Lee", text.ACTION_CHANGE, severity=2, reason="")
-    at.button(key="save_SYN-006").click()
+    at.button(key="save_SYN-026").click()
     at.run(timeout=60)
     assert any(text.ERR_REASON in e.value for e in at.error)
     assert len(at.session_state["decisions"]) == 0
@@ -189,27 +189,27 @@ def test_a_lowered_item_stays_visible_as_overruled_the_queue_does_not_move_and_t
     order_before = list(queue_rows(at)[text.COL_REPORT])
     priority_before = list(queue_rows(at)[text.COL_PRIORITY])
     fill(at, "Sam Lee", text.ACTION_CHANGE, severity=2, reason="Checked with the lead, it was a harmless item.")
-    at.button(key="save_SYN-006").click()
+    at.button(key="save_SYN-026").click()
     at.run(timeout=60)
     assert not at.exception and not at.error
     assert any(text.SAVED_OK in s.value for s in at.success)
     rows = queue_rows(at)
     assert "Overruled by Sam Lee: Checked with the lead" in rows.iloc[0][text.COL_REVIEWER]
     assert list(rows[text.COL_REPORT]) == order_before and list(rows[text.COL_PRIORITY]) == priority_before
-    assert opened_report(at) == "SYN-006"                               # saving does not close the panel
+    assert opened_report(at) == "SYN-026"                               # saving does not close the panel
     assert any("Overruled by Sam Lee" in t.value for t in at.text)      # shown in the decision box too
 
 
 def test_confirming_needs_a_name(at):
     fill(at, "", text.ACTION_CONFIRM)
-    at.button(key="save_SYN-006").click()
+    at.button(key="save_SYN-026").click()
     at.run(timeout=60)
     assert any(text.ERR_NAME in e.value for e in at.error)
 
 
 def test_confirming_is_saved_without_a_reason(at):
     fill(at, "Sam Lee", text.ACTION_CONFIRM)
-    at.button(key="save_SYN-006").click()
+    at.button(key="save_SYN-026").click()
     at.run(timeout=60)
     assert not at.error
     assert "Confirmed by Sam Lee" in queue_rows(at).iloc[0][text.COL_REVIEWER]

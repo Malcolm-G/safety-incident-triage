@@ -203,7 +203,7 @@ def test_queue_is_most_urgent_first_with_needs_a_person_first_inside_a_band(queu
     top = [t for t in queue if t.final_severity == 4]
     needs = [t for t in top if t.needs_person]
     assert top[:len(needs)] == needs and len(needs) >= 2
-    assert queue[0].report_id == "SYN-006" and queue[1].report_id == "SYN-014"
+    assert [t.report_id for t in queue[:3]] == ["SYN-026", "SYN-006", "SYN-014"]
 
 
 def test_order_inside_a_band_goes_raised_then_most_missing_then_id(queue):

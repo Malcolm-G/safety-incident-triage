@@ -8,11 +8,11 @@ from triage.reference import (LEVELS, load_checklists, load_hazard_flags, load_i
                               load_instruction_phrases, load_required_details, load_severity_scale)
 
 
-def test_twenty_reports_parse():
+def test_twenty_eight_reports_parse():
     reports = load_reports()
-    assert len(reports) == 20
+    assert len(reports) == 28
     ids = [r.report_id for r in reports]
-    assert len(set(ids)) == 20 and all(re.fullmatch(r"SYN-\d{3}", i) for i in ids)
+    assert len(set(ids)) == 28 and all(re.fullmatch(r"SYN-\d{3}", i) for i in ids)
     assert all(re.fullmatch(r"\d{4}-\d{2}-\d{2}", r.submitted_on) for r in reports)
     assert all(r.text for r in reports)
 
@@ -31,11 +31,11 @@ def test_the_awkward_cases_are_all_there():
     assert any("never touched" in t and "hit the wing tip" in t for t in by_id.values())  # contradicts itself
 
 
-def test_labels_cover_every_report_with_a_12_8_split():
+def test_labels_cover_every_report_with_a_20_8_split():
     labels = load_labels()
     reports = load_reports()
     assert sorted(l.report_id for l in labels) == sorted(r.report_id for r in reports)
-    assert Counter(l.split for l in labels) == {"tuning": 12, "holdout": 8}
+    assert Counter(l.split for l in labels) == {"tuning": 20, "holdout": 8}
 
 
 def test_labels_are_valid():
