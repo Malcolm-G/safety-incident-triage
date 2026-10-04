@@ -11,6 +11,7 @@ This app is meant to sort free-text incident reports from an aircraft ground-han
 - Twenty invented reports, all marked **SYNTHETIC** (see `data/README.md`).
 - A review queue, worked out by fixed rules, with the most urgent first and the reasons in plain words.
 - A report card that keeps three things apart: what the AI reader suggested, the review priority set by the rules, and the reviewer's decision.
+- A clickable queue. Click any row and the full report opens in a panel beside it, in separate boxes. A Close button gives the table the full width again.
 - A reviewer panel. Lowering a severity needs a written reason. A decision never replaces the computed result.
 - A chart of reports by review priority, and four quality checks.
 

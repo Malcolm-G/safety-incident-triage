@@ -61,24 +61,25 @@ DETAILS_COMPLETE = "Complete"
 DETAILS_INCOMPLETE = "Incomplete: {n} missing"
 ALT_QUEUE = "The review queue, most urgent first"
 
-# ---------- report card ----------
-OPEN_REPORT_LABEL = "Open a report"
-CARD_AI_HEADING = "What the AI reader said"
-CARD_RULES_HEADING = "Review priority"
-CARD_REVIEWER_HEADING = "Reviewer's decision"
-CARD_LOOKS_LIKE = "Looks like"
+# ---------- report panel (opens when a row is clicked) ----------
+PANEL_HINT = "Click a row in the queue to open that report here."
+CLOSE_BUTTON = "Close"
+SECTION_REPORT = "The report"
+SECTION_WHY = "Why it is here"
+SECTION_AI = "What the AI reader said"
+SECTION_MISSING = "What is missing"
+SECTION_CHECKLIST = "Generic reviewer checklist, not instructions"
+SECTION_DECISION = "Reviewer's decision"
+LOOKS_LIKE = "Looks like"
 CARD_RATING = "Rating"
 CARD_REASON_GIVEN = "Reason given"
 CARD_FOUND = "What it found"
 NOTHING_FOUND = "Nothing from the list."
 CARD_SUMMARY = "In one sentence"
-CARD_WHY = "Why it is here"
 RAISED_NOTE = "Raised from {suggested} to {final}."
-MISSING_HEADING = "What is missing"
 NOTHING_MISSING = "The AI reader did not mark anything as missing."
-CHECKLIST_HEADING = "Generic reviewer checklist, not instructions"
-REPORT_TEXT_HEADING = "The report"
 NO_ANSWER_CARD = "There is no usable answer from the AI reader for this report."
+ALT_QUEUE_TABLE = "The review queue, most urgent first. Click a row to open that report."
 
 # ---------- plain reasons ----------
 # One plain label for each flag in data/reference/hazard_flags.csv. These are the reasons shown to a person.
@@ -86,15 +87,16 @@ FLAG_LABELS = {
     "serious_injury": "Serious injury",
     "fire_or_smoke": "Fire or smoke",
     "someone_hurt": "Someone was hurt",
-    "aircraft_damaged": "An aircraft was damaged",
-    "touched_aircraft": "Something touched an aircraft",
-    "moved_by_jet_blast": "People or equipment moved by jet blast",
-    "fuel_leaking": "Fuel leaked or spilled",
-    "property_damaged": "Equipment or property was damaged",
+    "aircraft_damaged": "Aircraft damaged",
+    "aircraft_struck": "Aircraft hit by a vehicle or equipment",
+    "moved_by_jet_blast": "Moved by jet blast",
+    "fuel_leaking": "Fuel leak or spill",
+    "property_damaged": "Equipment or property damaged",
     "injury_unclear": "Not sure whether anyone was hurt",
-    "nearly_struck": "Something was nearly hit",
+    "nearly_struck": "Near miss",
     "instructions_to_reader": "Text aimed at the reader",
 }
+WHY_LINE = "{label}: {detail}"
 REASON_INSTRUCTION = "The report contains instructions aimed at the reader. A person should read it now."
 NOTE_SHORT = "Very short report: details are likely missing."
 NOTE_MISSING = "Details marked as missing: {items}."

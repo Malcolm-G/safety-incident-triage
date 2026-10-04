@@ -16,10 +16,32 @@ IncidentTypeId = Literal[
 ]
 DetailId = Literal["who", "where", "when", "what_happened", "injury_stated", "damage_stated", "action_taken"]
 HazardFlagId = Literal[
-    "serious_injury", "fire_or_smoke", "someone_hurt", "aircraft_damaged", "touched_aircraft",
+    "serious_injury", "fire_or_smoke", "someone_hurt", "aircraft_damaged", "aircraft_struck",
     "moved_by_jet_blast", "fuel_leaking", "property_damaged", "injury_unclear", "nearly_struck",
     "instructions_to_reader",
 ]
+
+
+MAX_DETAIL_CHARS = 120
+
+
+class FlagFinding(BaseModel):
+    """One thing the AI reader found. The flag drives the escalation. The detail is shown to a person
+    and is NEVER read by any code that decides a priority, an order or a check."""
+    model_config = ConfigDict(extra="forbid")
+
+    flag: HazardFlagId
+    detail: str                             # a short phrase: who or what
+
+    @field_validator("detail")
+    @classmethod
+    def _short_phrase(cls, v: str) -> str:
+        v = " ".join(v.split())
+        if not v:
+            raise ValueError("must not be empty")
+        if len(v) > MAX_DETAIL_CHARS:
+            raise ValueError(f"must be at most {MAX_DETAIL_CHARS} characters")
+        return v
 
 
 class IncidentReading(BaseModel):
@@ -29,7 +51,7 @@ class IncidentReading(BaseModel):
     incident_type: IncidentTypeId
     suggested_severity: Literal[1, 2, 3, 4]
     rating_reason: str                      # one sentence: why this rating
-    hazard_flags: list[HazardFlagId]        # things found, from the fixed list (empty if none)
+    hazard_flags: list[FlagFinding]         # things found, from the fixed list (empty if none)
     missing_details: list[DetailId]
     summary: str                            # one sentence: what happened
 
@@ -43,11 +65,18 @@ class IncidentReading(BaseModel):
             raise ValueError("must be at most 300 characters")
         return v
 
-    @field_validator("missing_details", "hazard_flags")
+    @field_validator("missing_details")
     @classmethod
     def _no_repeats(cls, v: list[str]) -> list[str]:
         if len(set(v)) != len(v):
             raise ValueError("must not repeat an item")
+        return v
+
+    @field_validator("hazard_flags")
+    @classmethod
+    def _no_repeated_flags(cls, v: list[FlagFinding]) -> list[FlagFinding]:
+        if len({f.flag for f in v}) != len(v):
+            raise ValueError("must not repeat a flag")
         return v
 
 

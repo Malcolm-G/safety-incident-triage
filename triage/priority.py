@@ -48,8 +48,11 @@ def triage_report(report: Report, outcome: Outcome, ref: Reference, text_read: T
         why.append(text.FAILURE_REASONS[failure.value])
     if instruction_like:
         why.append(text.REASON_INSTRUCTION)
-    flags = escalation.flags if escalation else ()
-    shown = [text.FLAG_LABELS[f] for f in flags if not ref.hazard_flags[f].needs_person]
+    findings = escalation.findings if escalation else ()
+    flags = tuple(f.flag for f in findings)
+    # "Someone was hurt: a loader hurt her hand on a dropped bag" (the detail is the AI reader's own words)
+    shown = [text.WHY_LINE.format(label=text.FLAG_LABELS[f.flag], detail=f.detail)
+             for f in findings if not ref.hazard_flags[f.flag].needs_person]
     why.extend(shown)
     if reading and not shown and not instruction_like:
         why.append(reading.rating_reason)      # nothing on the list was found: the AI reader's own reason
@@ -64,7 +67,7 @@ def triage_report(report: Report, outcome: Outcome, ref: Reference, text_read: T
     type_id = reading.incident_type if reading else "other"
     return Triage(
         report_id=report.report_id, reading=reading, failure=failure, suggested_severity=suggested,
-        floor=floor, final_severity=final, raised=raised, instruction_like=instruction_like, flags=tuple(flags),
+        floor=floor, final_severity=final, raised=raised, instruction_like=instruction_like, flags=flags,
         missing=missing, incomplete=bool(missing) or text_read.very_short, very_short=text_read.very_short,
         why=tuple(why), notes=tuple(notes),
         checklist=tuple(ref.checklists.get(type_id, ref.checklists.get("other", []))),

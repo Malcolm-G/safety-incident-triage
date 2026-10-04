@@ -1,9 +1,11 @@
-"""P1: the page shows the queue, the report card, the reviewer panel and the checks, and behaves."""
+"""The page: a clickable queue, the report panel on the right in separate boxes, the reviewer panel, and the checks."""
+import numpy as np
 import pytest
 from streamlit.testing.v1 import AppTest
 
 import config
 from triage import text
+from views import clicked_report_id
 
 
 def fresh_app(monkeypatch):
@@ -17,13 +19,24 @@ def at(monkeypatch):
     return fresh_app(monkeypatch).run(timeout=60)
 
 
-def plain(value) -> str:
-    return str(value).replace("\\", "")        # table cells are Markdown-escaped; compare what a person sees
-
-
 def queue_rows(app):
-    return app.table[0].value
+    return app.dataframe[0].value
 
+
+def click_row(app, position):
+    """Simulate clicking a cell in a row of the queue, as the browser would (a cell is [row, column name])."""
+    key = f"queue_{app.session_state['queue_gen'] if 'queue_gen' in app.session_state else 0}"
+    cells = [[position, text.COL_WHY]] if position is not None else []
+    app.session_state[key] = {"selection": {"rows": [], "columns": [], "cells": cells}}
+    return app.run(timeout=60)
+
+
+def opened_report(app):
+    shown = [s.value for s in app.subheader if s.value.startswith("SYN-")]
+    return shown[0] if shown else None
+
+
+# ---- the page ----
 
 def test_page_shows_banners_checks_and_the_nothing_sent_line(at):
     assert not at.exception
@@ -35,20 +48,23 @@ def test_page_shows_banners_checks_and_the_nothing_sent_line(at):
     assert any(s.value == text.CHECKS_ALL_PASSED.format(n=4) for s in at.success)
 
 
-def test_the_queue_has_twenty_reports_failure_first(at):
+def test_the_queue_is_a_clickable_table_of_twenty_reports_failure_first(at):
     rows = queue_rows(at)
     assert len(rows) == 20
-    assert plain(rows.iloc[0][text.COL_REPORT]) == "SYN-006"
-    assert plain(rows.iloc[0][text.COL_PRIORITY]) == text.BAND_NEEDS_PERSON
-    assert plain(rows.iloc[0][text.COL_AI]) == text.AI_NO_ANSWER
+    assert list(rows.columns) == [text.COL_ORDER, text.COL_REPORT, text.COL_PRIORITY, text.COL_WHY,
+                                  text.COL_DETAILS, text.COL_REVIEWER]
+    assert rows.iloc[0][text.COL_REPORT] == "SYN-006"
+    assert rows.iloc[0][text.COL_PRIORITY] == text.BAND_NEEDS_PERSON
 
 
-def test_why_it_is_here_gives_plain_reasons_not_a_story_about_who_decided(at):
-    rows = queue_rows(at)
-    why = {plain(r[text.COL_REPORT]): plain(r[text.COL_WHY]) for _, r in rows.iterrows()}
-    assert why["SYN-002"] == "Someone was hurt"
-    assert why["SYN-016"] == "Serious injury | Someone was hurt"
-    assert why["SYN-004"] == "Fuel leaked or spilled"
+def test_why_it_is_here_gives_a_clear_reason_with_a_little_detail_not_a_story(at):
+    why = {r[text.COL_REPORT]: r[text.COL_WHY] for _, r in queue_rows(at).iterrows()}
+    assert why["SYN-002"] == "Someone was hurt: a loader hurt his lower back lifting a heavy bag"
+    assert why["SYN-016"] == ("Serious injury: a ramp agent's wrist was badly hurt and an ambulance took him away"
+                              " | Someone was hurt: he tripped over a strap and landed on his hand")
+    assert why["SYN-004"] == "Fuel leak or spill: a few litres dripped from a hose coupling during refuelling"
+    assert why["SYN-001"] == ("Aircraft damaged: a dent and a scrape near the cargo door"
+                              " | Aircraft hit by a vehicle or equipment: a baggage tractor reversed into the aircraft")
     assert why["SYN-006"] == text.FAILURE_REASONS["timed_out"]
     assert why["SYN-014"] == text.REASON_INSTRUCTION
     for report_id, line in why.items():
@@ -56,30 +72,99 @@ def test_why_it_is_here_gives_plain_reasons_not_a_story_about_who_decided(at):
             assert narration not in line, (report_id, line)
 
 
-def test_the_card_shows_three_separate_things(at):
-    shown = " ".join(m.value for m in at.markdown)
-    for heading in (text.CARD_AI_HEADING, text.CARD_RULES_HEADING, text.CARD_REVIEWER_HEADING,
-                    text.REVIEWER_HEADING, text.MISSING_HEADING, text.CHECKLIST_HEADING):
-        assert heading in shown
+# ---- click a row: the report opens in a panel ----
+
+def test_the_first_report_is_open_when_the_page_loads(at):
+    assert opened_report(at) == "SYN-006"
+    assert at.session_state["open_id"] == "SYN-006"
+
+
+def test_the_panel_has_its_sections_in_reading_order_each_in_a_box(at):
+    order = [m.value.strip("*") for m in at.markdown]
+    wanted = [text.SECTION_REPORT, text.SECTION_WHY, text.SECTION_AI, text.SECTION_MISSING,
+              text.SECTION_CHECKLIST, text.SECTION_DECISION, text.REVIEWER_HEADING]
+    positions = [order.index(w) for w in wanted]
+    assert positions == sorted(positions)
+    import re
+    views_source = (config.ROOT / "views.py").read_text(encoding="utf-8")
+    assert len(re.findall(r"container\(border=True\)", views_source)) >= 2 and "def _box(" in views_source
+
+
+def test_clicking_another_row_opens_that_report(at):
+    at = click_row(at, 2)
     assert not at.exception
+    assert opened_report(at) == "SYN-016"
+    assert any("badly hurt his wrist" in t.value for t in at.text)
+    assert any("Serious injury: a ramp agent's wrist" in t.value for t in at.text)
 
 
-def test_the_chart_and_the_all_reports_table_are_there(at):
+def test_the_panel_shows_every_detail_of_the_reason_and_what_the_AI_said(at):
+    at = click_row(at, 3)                                 # SYN-002
+    assert opened_report(at) == "SYN-002"
+    texts = [t.value for t in at.text]
+    assert "Someone was hurt: a loader hurt his lower back lifting a heavy bag" in texts
+    assert text.RAISED_NOTE.format(suggested="Low", final="High") in texts
+    assert any(t.startswith(f"{text.CARD_REASON_GIVEN}: The writer calls it a minor strain.") for t in texts)
+
+
+def test_clicking_any_cell_of_a_row_opens_it(at):
+    for column in (text.COL_ORDER, text.COL_REPORT, text.COL_PRIORITY, text.COL_DETAILS, text.COL_REVIEWER):
+        key = "queue_0"
+        at.session_state[key] = {"selection": {"rows": [], "columns": [], "cells": [[5, column]]}}
+        at.run(timeout=60)
+        assert not at.exception
+        assert opened_report(at) == list(queue_rows(at)[text.COL_REPORT])[5], column
+
+
+def test_the_open_row_is_shaded(at):
+    from views import queue_frame
+    assert at.dataframe[0].value.iloc[0][text.COL_REPORT] == "SYN-006"
+    import views, inspect
+    assert "background-color" in inspect.getsource(views.queue_frame)
+
+
+def test_the_close_button_hides_the_panel_and_clears_the_selection(at):
+    at.button(key="close_panel").click()
+    at.run(timeout=60)
+    assert not at.exception
+    assert opened_report(at) is None
+    assert at.session_state["open_id"] is None and at.session_state["queue_gen"] == 1
+    assert not [b for b in at.button if b.label == text.CLOSE_BUTTON]
+    assert len(queue_rows(at)) == 20                      # the queue is still there, now with no row selected
+    at.run(timeout=60)                                    # a further run changes nothing: no loop
+    assert opened_report(at) is None and not at.exception
+    at = click_row(at, 4)                                 # clicking a row opens the panel again
+    assert opened_report(at) is not None and at.session_state["open_id"] is not None
+
+
+def test_clicking_the_open_row_again_does_not_loop(at):
+    at = click_row(at, 0)
+    assert not at.exception and opened_report(at) == "SYN-006"
+
+
+def test_clicked_report_id_helper():
+    ids = ["A", "B", "C"]
+    assert clicked_report_id([], ids) is None
+    assert clicked_report_id([[0, "Why"]], ids) == "A"
+    assert clicked_report_id([(2, "Why")], ids) == "C"
+    assert clicked_report_id([{"row": 1, "column": "Why"}], ids) == "B"
+    assert clicked_report_id([[np.int64(1), "Why"]], ids) == "B"
+    assert clicked_report_id([[3, "Why"]], ids) is None   # a stale selection
+    assert clicked_report_id([[-1, "Why"]], ids) is None
+    assert clicked_report_id([["x", "Why"]], ids) is None
+    assert clicked_report_id([[None, "Why"]], ids) is None
+
+
+def test_the_all_reports_table_and_chart_are_there(at):
     assert len(at.get("vega_lite_chart")) >= 1
-    assert len(at.table[1].value) == 20
+    assert len(at.table[0].value) == 20
 
 
 def test_tabs_are_tracked_so_a_rerun_keeps_the_open_tab(at):
     assert "main_tabs" in at.session_state
 
 
-def test_opening_another_report_shows_its_card(at):
-    at.selectbox(key="open_report").set_value("SYN-016").run(timeout=60)
-    assert not at.exception
-    assert any("badly hurt his wrist" in t.value for t in at.text)
-
-
-# ---- reviewer flow ----
+# ---- reviewer flow, now inside the panel ----
 
 def fill(app, name, action, severity=None, reason="", report="SYN-006"):
     app.text_input(key="reviewer_name").set_value(name)
@@ -96,27 +181,23 @@ def test_lowering_without_a_reason_is_refused_and_nothing_is_saved(at):
     at.run(timeout=60)
     assert any(text.ERR_REASON in e.value for e in at.error)
     assert len(at.session_state["decisions"]) == 0
-    assert plain(queue_rows(at).iloc[0][text.COL_REVIEWER]) == text.STATUS_WAITING
+    assert queue_rows(at).iloc[0][text.COL_REVIEWER] == text.STATUS_WAITING
     assert queue_rows(at).equals(before)
 
 
-def test_a_lowered_item_stays_visible_as_overruled_and_the_queue_does_not_move(at):
-    order_before = [plain(x) for x in queue_rows(at)[text.COL_REPORT]]
-    priority_before = [plain(x) for x in queue_rows(at)[text.COL_PRIORITY]]
+def test_a_lowered_item_stays_visible_as_overruled_the_queue_does_not_move_and_the_panel_stays_open(at):
+    order_before = list(queue_rows(at)[text.COL_REPORT])
+    priority_before = list(queue_rows(at)[text.COL_PRIORITY])
     fill(at, "Sam Lee", text.ACTION_CHANGE, severity=2, reason="Checked with the lead, it was a harmless item.")
     at.button(key="save_SYN-006").click()
     at.run(timeout=60)
     assert not at.exception and not at.error
     assert any(text.SAVED_OK in s.value for s in at.success)
     rows = queue_rows(at)
-    assert "Overruled by Sam Lee: Checked with the lead" in plain(rows.iloc[0][text.COL_REVIEWER])
-    # the computed result and the queue order are exactly what they were
-    assert [plain(x) for x in rows[text.COL_REPORT]] == order_before
-    assert [plain(x) for x in rows[text.COL_PRIORITY]] == priority_before
-    # the card shows the overrule next to, not instead of, the computed priority
-    shown = " ".join(w.value for w in at.markdown) + " " + " ".join(t.value for t in at.text) + " " + \
-            " ".join(w.value for w in at.get("markdown"))
-    assert any("Overruled by Sam Lee" in plain(t.value) for t in at.text) or "Overruled by Sam Lee" in plain(shown)
+    assert "Overruled by Sam Lee: Checked with the lead" in rows.iloc[0][text.COL_REVIEWER]
+    assert list(rows[text.COL_REPORT]) == order_before and list(rows[text.COL_PRIORITY]) == priority_before
+    assert opened_report(at) == "SYN-006"                               # saving does not close the panel
+    assert any("Overruled by Sam Lee" in t.value for t in at.text)      # shown in the decision box too
 
 
 def test_confirming_needs_a_name(at):
@@ -131,7 +212,7 @@ def test_confirming_is_saved_without_a_reason(at):
     at.button(key="save_SYN-006").click()
     at.run(timeout=60)
     assert not at.error
-    assert "Confirmed by Sam Lee" in plain(queue_rows(at).iloc[0][text.COL_REVIEWER])
+    assert "Confirmed by Sam Lee" in queue_rows(at).iloc[0][text.COL_REVIEWER]
 
 
 def test_a_failed_check_shows_one_plain_message(monkeypatch):

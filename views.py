@@ -40,8 +40,22 @@ def reviewer_label(log: DecisionLog, report_id: str, ref: Reference) -> str:
 
 
 def why_label(t: Triage) -> str:
-    """The clear reasons, for example 'Someone was hurt'. Nothing about who decided what."""
+    """The clear reasons, for example 'Someone was hurt: a loader hurt her hand'. Nothing about who decided what."""
     return " | ".join(t.why)
+
+
+def clicked_report_id(cells: list, ids: list[str]) -> str | None:
+    """Turn the table's selected cell into the report id of its row. Accepts [row, column], (row, column) or
+    {"row": ..., "column": ...}. None if nothing valid is selected."""
+    if not cells:
+        return None
+    first = cells[0]
+    row = first.get("row") if isinstance(first, dict) else (first[0] if isinstance(first, (list, tuple)) and first else first)
+    try:
+        position = int(row)
+    except (TypeError, ValueError):
+        return None
+    return ids[position] if 0 <= position < len(ids) else None
 
 
 # ---------- page parts ----------
@@ -58,18 +72,53 @@ def render_check_summary(checks: list[Check]) -> None:
         st.caption(text.CHECKS_NOTE)
 
 
-def render_queue(queue: list[Triage], log: DecisionLog, ref: Reference) -> None:
+def queue_frame(queue: list[Triage], log: DecisionLog, ref: Reference, open_id: str | None):
+    """The queue as a table, with the open report's row shaded. st.dataframe shows cells as plain text,
+    so report text cannot become a link."""
+    frame = pd.DataFrame([{
+        text.COL_ORDER: i,
+        text.COL_REPORT: t.report_id,
+        text.COL_PRIORITY: priority_label(t),
+        text.COL_WHY: why_label(t),
+        text.COL_DETAILS: details_label(t),
+        text.COL_REVIEWER: reviewer_label(log, t.report_id, ref),
+    } for i, t in enumerate(queue, start=1)])
+    shade = [t.report_id == open_id for t in queue]
+    return frame.style.apply(
+        lambda row: ["background-color:rgba(255,75,75,.18)" if shade[row.name] else "" for _ in row], axis=1)
+
+
+def render_queue(queue: list[Triage], log: DecisionLog, ref: Reference, open_id: str | None) -> str | None:
+    """Draw the queue. Clicking any cell in a row selects that row's report. Returns the clicked report id, or None."""
     st.subheader(text.QUEUE_HEADING)
     st.caption(text.QUEUE_INTRO)
-    st.table(pd.DataFrame([{
-        text.COL_ORDER: i,
-        text.COL_REPORT: md_escape(t.report_id),
-        text.COL_PRIORITY: md_escape(priority_label(t)),
-        text.COL_AI: md_escape(ai_label(t, ref)),
-        text.COL_WHY: md_escape(why_label(t)),
-        text.COL_DETAILS: md_escape(details_label(t)),
-        text.COL_REVIEWER: md_escape(reviewer_label(log, t.report_id, ref)),
-    } for i, t in enumerate(queue, start=1)]).set_index(text.COL_ORDER), alt=text.ALT_QUEUE)
+    ids = [t.report_id for t in queue]
+    event = st.dataframe(
+        queue_frame(queue, log, ref, open_id), hide_index=True, height="content", on_select="rerun",
+        selection_mode="single-cell", key=f"queue_{st.session_state.get('queue_gen', 0)}",
+        alt=text.ALT_QUEUE_TABLE,
+        column_config={
+            text.COL_ORDER: st.column_config.NumberColumn(width="small"),
+            text.COL_REPORT: st.column_config.TextColumn(width="small"),
+            text.COL_PRIORITY: st.column_config.TextColumn(width="medium"),
+            text.COL_WHY: st.column_config.TextColumn(width="large"),
+            text.COL_DETAILS: st.column_config.TextColumn(width="medium"),
+            text.COL_REVIEWER: st.column_config.TextColumn(width="medium"),
+        },
+    )
+    return clicked_report_id(list(event.selection.cells), ids)
+
+
+def open_report(report_id: str | None) -> None:
+    """Open a report in the panel (or close the panel with None). Closing clears the table's selection
+    by changing its key, so the next click is a fresh one."""
+    st.session_state["open_id"] = report_id
+    if report_id is None:
+        st.session_state["queue_gen"] = st.session_state.get("queue_gen", 0) + 1
+
+
+def _close_panel() -> None:
+    open_report(None)
 
 
 def _save_decision(triage: Triage) -> None:
@@ -91,7 +140,6 @@ def _save_decision(triage: Triage) -> None:
 
 def render_reviewer(t: Triage, log: DecisionLog, ref: Reference) -> None:
     rid = t.report_id
-    st.markdown(f"**{text.REVIEWER_HEADING}**")
     st.caption(text.REVIEWER_INTRO)
     st.text_input(text.NAME_LABEL, key="reviewer_name")
     action = st.radio(text.ACTION_LABEL, text.ACTIONS, key=f"action_{rid}")
@@ -104,50 +152,66 @@ def render_reviewer(t: Triage, log: DecisionLog, ref: Reference) -> None:
         (st.error if message[0] == "error" else st.success)(message[2])
 
 
-def render_card(t: Triage, report: Report, log: DecisionLog, ref: Reference) -> None:
-    c_ai, c_rules, c_rev = st.columns(3)
-    with c_ai:
-        st.markdown(f"**{text.CARD_AI_HEADING}**")
+def _box(title: str):
+    """A bordered section with a plain heading. Use as: with _box(title): ..."""
+    box = st.container(border=True)
+    box.markdown(f"**{title}**")
+    return box
+
+
+def render_panel(t: Triage, report: Report, log: DecisionLog, ref: Reference) -> None:
+    """The report, in its own bordered boxes, in reading order."""
+    with st.container(border=True):
+        head, close = st.columns([4, 1])
+        head.subheader(t.report_id)
+        close.button(text.CLOSE_BUTTON, key="close_panel", on_click=_close_panel)
+        kind = ref.type_names[t.reading.incident_type] if t.reading else text.AI_NO_ANSWER
+        st.write(f"{priority_label(t)} ({t.final_severity}). {text.LOOKS_LIKE}: {kind}")
+
+    with _box(text.SECTION_REPORT):
+        st.text(report.text)
+
+    with _box(text.SECTION_WHY):
+        for line in t.why:
+            st.text(line)
+        if t.raised:
+            st.text(text.RAISED_NOTE.format(suggested=ref.scale[t.suggested_severity], final=ref.scale[t.final_severity]))
+        for note in t.notes:
+            st.text(note)
+
+    with _box(text.SECTION_AI):
         if t.reading:
             r = t.reading
-            st.write(f"{text.CARD_LOOKS_LIKE}: {ref.type_names[r.incident_type]}")
-            st.write(f"{text.CARD_RATING}: {ref.scale[r.suggested_severity]} ({r.suggested_severity})")
+            st.text(f"{text.CARD_RATING}: {ref.scale[r.suggested_severity]} ({r.suggested_severity})")
             st.text(f"{text.CARD_REASON_GIVEN}: {r.rating_reason}")
-            found = [text.FLAG_LABELS[f] for f in r.hazard_flags]
+            found = [text.WHY_LINE.format(label=text.FLAG_LABELS[f.flag], detail=f.detail) for f in r.hazard_flags]
             st.text(f"{text.CARD_FOUND}: " + ("; ".join(found) if found else text.NOTHING_FOUND))
             st.text(f"{text.CARD_SUMMARY}: {r.summary}")
         else:
-            st.write(text.NO_ANSWER_CARD)
-    with c_rules:
-        st.markdown(f"**{text.CARD_RULES_HEADING}**")
-        st.write(f"{priority_label(t)} ({t.final_severity})")
-        if t.raised:
-            st.text(text.RAISED_NOTE.format(suggested=ref.scale[t.suggested_severity], final=ref.scale[t.final_severity]))
-        st.text(f"{text.CARD_WHY}: " + " | ".join(t.why))
-        for note in t.notes:
-            st.text(note)
-    with c_rev:
-        st.markdown(f"**{text.CARD_REVIEWER_HEADING}**")
+            st.text(text.NO_ANSWER_CARD)
+
+    with _box(text.SECTION_MISSING):
+        if t.missing:
+            for m in t.missing:
+                st.text(ref.details.get(m, m))
+        else:
+            st.text(text.NOTHING_MISSING)
+
+    with _box(text.SECTION_CHECKLIST):
+        for item in t.checklist:
+            st.text(item)
+
+    with _box(text.SECTION_DECISION):
         latest = log.latest(t.report_id)
-        st.write(reviewer.describe(latest, ref.scale) if latest else text.NO_DECISION)
+        st.text(reviewer.describe(latest, ref.scale) if latest else text.NO_DECISION)
         earlier = log.history(t.report_id)[:-1]
         if earlier:
             st.caption(text.HISTORY_HEADING)
             for d in reversed(earlier):
                 st.text(reviewer.describe(d, ref.scale))
-
-    st.markdown(f"**{text.MISSING_HEADING}**")
-    if t.missing:
-        for m in t.missing:
-            st.text(ref.details.get(m, m))
-    else:
-        st.text(text.NOTHING_MISSING)
-    st.markdown(f"**{text.CHECKLIST_HEADING}**")
-    for item in t.checklist:
-        st.text(item)
-    st.markdown(f"**{text.REPORT_TEXT_HEADING}**")
-    st.text(report.text)
-    render_reviewer(t, log, ref)
+        st.divider()
+        st.markdown(f"**{text.REVIEWER_HEADING}**")
+        render_reviewer(t, log, ref)
 
 
 def render_all(queue: list[Triage], log: DecisionLog, ref: Reference) -> None:

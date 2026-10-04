@@ -1,5 +1,5 @@
 id,name,description
-aircraft_contact,"Vehicle or equipment contact with aircraft","A vehicle, cart or piece of equipment touched or hit an aircraft."
+aircraft_contact,"Vehicle or equipment hit an aircraft","A vehicle, cart or piece of equipment collided with an aircraft by accident."
 manual_handling,"Manual handling injury","Someone was hurt lifting, pushing, pulling or carrying."
 slip_trip_fall,"Slip, trip or fall","Someone slipped, tripped or fell."
 fuel_spill,"Fuel spill","Fuel leaked or spilled."
