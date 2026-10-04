@@ -317,10 +317,10 @@ def test_the_allowed_values_match_the_visible_tables(ref):
     assert set(typing.get_args(HazardFlagId)) == set(ref.hazard_flags)
 
 
-def test_only_the_extractor_may_import_the_ai_library():
+def test_only_the_reader_may_import_the_ai_library():
     import re
     for p in config.ROOT.rglob("*.py"):
-        if any(part in {".venv", ".git", "__pycache__", "tests"} for part in p.parts) or p.name == "extractor.py":
+        if any(part in {".venv", ".git", "__pycache__", "tests"} for part in p.parts) or p.name == "reader.py":
             continue
         assert not re.search(r"^\s*(import|from)\s+anthropic", p.read_text(encoding="utf-8"), re.M), p.name
 

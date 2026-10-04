@@ -10,7 +10,7 @@ DATA_DIR = ROOT / "data"
 REFERENCE_DIR = DATA_DIR / "reference"
 
 DATASET = os.environ.get("DATASET", "synthetic")
-MODEL = os.environ.get("MODEL", "claude-haiku-4-5")  # small, cheap default; override with MODEL
+MODEL = os.environ.get("MODEL", "claude-sonnet-5-5")  # chosen on the tuning reports in P2b; override with MODEL
 PROMPT_VERSION = "v1"
 
 
