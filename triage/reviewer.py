@@ -3,11 +3,14 @@
 A decision is a frozen record. The log only ever gets new records added; nothing is edited or removed.
 Lowering a severity below the computed review priority needs a written reason. Nothing is kept after the session.
 """
+import csv
+import io
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from triage import text
 from triage.models import Triage
+from triage.reference import Reference
 
 MIN_REASON_CHARS = 5
 MIN_NAME_CHARS = 2
@@ -96,5 +99,48 @@ class DecisionLog:
         d = self.latest(report_id)
         return d.status if d else text.STATUS_WAITING
 
+    def all(self) -> list[Decision]:
+        return list(self._items)
+
     def __len__(self) -> int:
         return len(self._items)
+
+
+@dataclass(frozen=True)
+class Tally:
+    total: int
+    reviewed: int
+    confirmed: int
+    raised: int
+    lowered: int
+    needs_info: int
+
+
+def tally(log: DecisionLog, queue: list[Triage]) -> Tally:
+    """Counts from each report's latest decision."""
+    latest = [d for d in (log.latest(t.report_id) for t in queue) if d]
+    count = lambda status: sum(d.status == status for d in latest)
+    return Tally(len(queue), len(latest), count(text.STATUS_CONFIRMED), count(text.STATUS_RAISED),
+                 count(text.STATUS_OVERRULED), count(text.STATUS_NEEDS_INFO))
+
+
+def _safe_cell(value) -> str:
+    """Typed text must not run as a formula when the file is opened in a spreadsheet."""
+    s = str(value)
+    return "'" + s if s[:1] in ("=", "+", "-", "@", "\t", "\r") else s
+
+
+def decisions_csv(log: DecisionLog, queue: list[Triage], ref: Reference) -> str:
+    """Every saved decision, oldest first, next to the computed priority and the AI rating. Built in memory."""
+    by_id = {t.report_id: t for t in queue}
+    out = io.StringIO()
+    writer = csv.writer(out, lineterminator="\n")
+    writer.writerow(text.CSV_HEADERS)
+    for d in log.all():
+        t = by_id.get(d.report_id)
+        agreed = {CONFIRM: text.AGREED_YES, CHANGE: text.AGREED_NO}.get(d.action, text.AGREED_UNDECIDED)
+        writer.writerow([_safe_cell(v) for v in (
+            d.report_id, ref.scale[t.final_severity] if t else "",
+            ref.scale[t.suggested_severity] if t and t.suggested_severity else text.AI_NO_ANSWER,
+            d.status, ref.scale[d.severity], agreed, d.reviewer, d.reason, d.at)])
+    return out.getvalue()

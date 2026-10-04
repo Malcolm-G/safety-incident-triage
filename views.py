@@ -11,6 +11,7 @@ from triage.models import Triage
 from triage.reference import Reference
 from triage.reviewer import DecisionError, DecisionLog
 
+LONG_REPORT_WORDS = 60          # shorter reports are shown in full right above, so no summary is added
 _MD_SPECIAL = re.compile(r"([\\`*_{}\[\]()#+\-.!|<>~$&:])")
 
 
@@ -60,16 +61,19 @@ def clicked_report_id(cells: list, ids: list[str]) -> str | None:
 
 # ---------- page parts ----------
 
-def render_check_summary(checks: list[Check]) -> None:
-    failed = [c for c in checks if not c.passed]
-    if failed:
-        st.error(text.CHECKS_FAILED.format(names="; ".join(c.name for c in failed)))
-    else:
-        st.success(text.CHECKS_ALL_PASSED.format(n=len(checks)))
-    with st.expander(text.CHECKS_HEADING):
-        for c in checks:
-            st.write(f"{text.CHECK_PASSED if c.passed else text.CHECK_FAILED}: {c.name}. {c.detail}")
-        st.caption(text.CHECKS_NOTE)
+def render_check_problem(checks: list[Check]) -> None:
+    """Quiet when all is well. Only a plain message if a check fails."""
+    if any(not c.passed for c in checks):
+        st.error(text.CHECKS_FAILED)
+
+
+def render_tally(queue: list[Triage], log: DecisionLog, ref: Reference) -> None:
+    n = reviewer.tally(log, queue)
+    line, button = st.columns([4, 1], vertical_alignment="center")
+    line.caption(text.TALLY.format(reviewed=n.reviewed, total=n.total, confirmed=n.confirmed, raised=n.raised,
+                                   lowered=n.lowered, needs_info=n.needs_info) + " " + text.KEEP_NOTE)
+    button.download_button(text.DOWNLOAD_BUTTON, data=reviewer.decisions_csv(log, queue, ref),
+                           file_name="decisions.csv", mime="text/csv", disabled=len(log) == 0)
 
 
 def queue_frame(queue: list[Triage], log: DecisionLog, ref: Reference, open_id: str | None):
@@ -92,6 +96,8 @@ def render_queue(queue: list[Triage], log: DecisionLog, ref: Reference, open_id:
     """Draw the queue. Clicking any cell in a row selects that row's report. Returns the clicked report id, or None."""
     st.subheader(text.QUEUE_HEADING)
     st.caption(text.QUEUE_INTRO)
+    if open_id is None:
+        st.caption(text.PANEL_HINT)
     ids = [t.report_id for t in queue]
     event = st.dataframe(
         queue_frame(queue, log, ref, open_id), hide_index=True, height="content", on_select="rerun",
@@ -159,10 +165,11 @@ def _box(title: str):
     return box
 
 
-def _sections(t: Triage, ref: Reference) -> None:
-    """Why it is here, what the AI reader said, what is missing and the checklist, each in its own box."""
+def _sections(t: Triage, ref: Reference, show_summary: bool = True) -> None:
+    """Why it is here, what the AI reader said, what is missing and the checklist. Each fact appears once."""
     with _box(text.SECTION_WHY):
-        for line in t.why:
+        lines = [line for line in t.why if not (t.reading and line == t.reading.rating_reason)]
+        for line in lines or [text.NO_FLAGS_NOTE]:
             st.text(line)
         if t.raised:
             st.text(text.RAISED_NOTE.format(suggested=ref.scale[t.suggested_severity], final=ref.scale[t.final_severity]))
@@ -172,17 +179,17 @@ def _sections(t: Triage, ref: Reference) -> None:
     with _box(text.SECTION_AI):
         if t.reading:
             r = t.reading
-            st.text(f"{text.CARD_RATING}: {ref.scale[r.suggested_severity]} ({r.suggested_severity}). "
-                    f"{text.CARD_REASON_GIVEN}: {r.rating_reason}")
-            st.text(f"{text.CARD_SUMMARY}: {r.summary}")
+            rating = f"{text.CARD_RATING}: {ref.scale[r.suggested_severity]} ({r.suggested_severity}). " \
+                if r.suggested_severity != t.final_severity else ""
+            st.text(f"{rating}{text.CARD_REASON_GIVEN}: {r.rating_reason}")
+            if show_summary:
+                st.text(f"{text.CARD_SUMMARY}: {r.summary}")
         else:
             st.text(text.NO_ANSWER_CARD)
 
-    with _box(text.SECTION_MISSING):
-        if t.missing:
+    if t.missing:
+        with _box(text.SECTION_MISSING):
             st.text("; ".join(ref.details.get(m, m) for m in t.missing))
-        else:
-            st.text(text.NOTHING_MISSING)
 
     with _box(text.SECTION_CHECKLIST):
         for item in t.checklist:
@@ -201,7 +208,7 @@ def render_panel(t: Triage, report: Report, log: DecisionLog, ref: Reference) ->
     with _box(text.SECTION_REPORT):
         st.text(report.text)
 
-    _sections(t, ref)
+    _sections(t, ref, show_summary=len(report.text.split()) >= LONG_REPORT_WORDS)
 
     with _box(text.SECTION_DECISION):
         latest = log.latest(t.report_id)

@@ -42,8 +42,8 @@ def test_secrets_are_ignored():
 
 
 def test_banners_say_synthetic_and_illustrative():
-    assert "SYNTHETIC" in text.SYNTHETIC_BANNER
-    assert "ILLUSTRATIVE" in text.ILLUSTRATIVE_NOTE and "not company policy" in text.ILLUSTRATIVE_NOTE
+    assert "invented" in text.NOTICE_INVENTED
+    assert "not company policy" in text.NOTICE_EXAMPLES
 
 
 def test_the_nothing_sent_sentence_is_allow_listed():

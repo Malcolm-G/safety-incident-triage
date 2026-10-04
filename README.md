@@ -13,10 +13,11 @@ This app sorts free-text incident reports from an aircraft ground-handling opera
 - Click any row and the full report opens in a panel beside it, in separate boxes. A Close button gives the table the full width again.
 - The report card keeps three things apart: what the AI reader suggested, the review priority worked out by fixed rules, and the reviewer's decision.
 - A reviewer panel. Lowering a priority needs a written reason. A decision never replaces the computed result, and a lowered item stays visible as "Overruled by NAME: REASON".
-- A chart of reports by review priority, and four quality checks.
+- A tally of reviewer decisions and a download of them as a CSV file. The page opens with the queue only; clicking a row opens its report.
+- A chart of reports by review priority. Four quality checks run quietly in the background and show a plain message only if one fails.
 
 ## Where it would fit in a company
-A sensible first phase: reviewers read the queue and check whether each report was rated appropriately. Every confirm or change is evidence on whether the AI reader's instructions and the fixed rules work, before anyone relies on the queue. Reviewers stay in charge throughout. In this demo, decisions are kept only while the page is open, so it shows the step but does not yet collect that evidence.
+A sensible first phase: reviewers read the queue and check whether each report was rated appropriately. Every confirm or change is evidence on whether the AI reader's instructions and the fixed rules work, before anyone relies on the queue. Reviewers stay in charge throughout. In this demo, decisions are kept only while the page is open. A tally above the queue shows how many were confirmed, raised or lowered, and a button downloads every decision as a CSV file, so a team can compare reviewers' decisions with the computed priority.
 
 ## Live mode (optional)
 If the host sets a passcode, an "Add a report" tab appears. After the passcode, a person can pick a sample or paste an invented report and the AI reader reads it now. The tab says: "Do not enter real incident details or personal information. Reports are not saved."

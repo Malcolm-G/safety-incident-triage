@@ -118,3 +118,55 @@ def test_a_decision_record_cannot_be_edited(top):
     d = decide(top, "Sam Lee", CONFIRM)
     with pytest.raises(dataclasses.FrozenInstanceError):
         d.reason = "changed afterwards"
+
+
+# ---- tally and decisions file ----
+
+def _queue_and_ref():
+    import config as _c
+    from triage.fixtures import load_fixture_outcomes
+    from triage.loader import load_reports
+    from triage.priority import build_queue
+    from triage.reference import load_reference
+    ref, reports = load_reference(), load_reports()
+    return build_queue(reports, load_fixture_outcomes([x.report_id for x in reports]), ref), ref
+
+
+def test_the_tally_counts_each_reports_latest_decision():
+    from triage import reviewer
+    queue, ref = _queue_and_ref()
+    log = reviewer.DecisionLog()
+    t0, t1, t2, t3 = queue[0], queue[10], queue[11], queue[12]
+    log.add(reviewer.decide(t0, "Sam Lee", reviewer.CONFIRM))
+    log.add(reviewer.decide(t1, "Sam Lee", reviewer.CHANGE, 4, ""))                       # raised
+    log.add(reviewer.decide(t2, "Sam Lee", reviewer.CHANGE, 1, "Checked with the lead."))  # lowered
+    log.add(reviewer.decide(t3, "Sam Lee", reviewer.NEEDS_INFO))
+    log.add(reviewer.decide(t3, "Sam Lee", reviewer.CONFIRM))                              # changed their mind: latest counts
+    n = reviewer.tally(log, queue)
+    assert (n.total, n.reviewed, n.confirmed, n.raised, n.lowered, n.needs_info) == (28, 4, 2, 1, 1, 0)
+    assert reviewer.tally(reviewer.DecisionLog(), queue).reviewed == 0
+
+
+def test_the_decisions_file_has_every_saved_decision_and_plain_columns():
+    import csv, io
+    from triage import reviewer, text
+    queue, ref = _queue_and_ref()
+    log = reviewer.DecisionLog()
+    log.add(reviewer.decide(queue[0], "Sam Lee", reviewer.NEEDS_INFO))
+    log.add(reviewer.decide(queue[0], "Sam Lee", reviewer.CONFIRM))
+    log.add(reviewer.decide(queue[11], "Ana Roy", reviewer.CHANGE, 1, "Checked with the lead."))
+    rows = list(csv.reader(io.StringIO(reviewer.decisions_csv(log, queue, ref))))
+    assert tuple(rows[0]) == text.CSV_HEADERS and len(rows) == 4
+    assert [r[5] for r in rows[1:]] == [text.AGREED_UNDECIDED, text.AGREED_YES, text.AGREED_NO]
+    assert rows[3][0] == queue[11].report_id and rows[3][6] == "Ana Roy" and rows[3][7] == "Checked with the lead."
+    assert reviewer.decisions_csv(reviewer.DecisionLog(), queue, ref).strip().count("\n") == 0   # header only
+
+
+def test_typed_text_cannot_run_as_a_spreadsheet_formula():
+    import csv, io
+    from triage import reviewer
+    queue, ref = _queue_and_ref()
+    log = reviewer.DecisionLog()
+    log.add(reviewer.decide(queue[11], "=HYPERLINK(1)", reviewer.CHANGE, 1, "+cmd|' /C calc'!A0"))
+    row = list(csv.reader(io.StringIO(reviewer.decisions_csv(log, queue, ref))))[1]
+    assert row[6].startswith("'=") and row[7].startswith("'+")

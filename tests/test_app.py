@@ -39,14 +39,15 @@ def opened_report(app):
 
 # ---- the page ----
 
-def test_page_shows_banners_checks_and_the_nothing_sent_line(at):
+def test_page_shows_one_plain_notice_and_the_nothing_sent_line(at):
     assert not at.exception
-    assert [t.value for t in at.title] == [text.APP_TITLE]
-    assert any(w.value.startswith("SYNTHETIC DATA") for w in at.warning)
-    assert any(w.value.startswith("HAND-WRITTEN EXAMPLE ANSWERS") for w in at.warning)
-    assert any(i.value.startswith("ILLUSTRATIVE ASSUMPTIONS") for i in at.info)
+    assert [x.value for x in at.title] == [text.APP_TITLE]
+    assert not at.warning and not at.success and not at.error     # no stack of banners, no quality-check boxes
+    assert len(at.info) == 1
+    notice = at.info[0].value
+    for sentence in (text.NOTICE_INVENTED, text.NOTICE_HAND, text.NOTICE_EXAMPLES):
+        assert sentence in notice
     assert any(text.NOTHING_SENT in c.value for c in at.caption)
-    assert any(s.value == text.CHECKS_ALL_PASSED.format(n=4) for s in at.success)
 
 
 def test_the_queue_is_a_clickable_table_of_all_reports_failure_first(at):
@@ -75,12 +76,18 @@ def test_why_it_is_here_gives_a_clear_reason_with_a_little_detail_not_a_story(at
 
 # ---- click a row: the report opens in a panel ----
 
-def test_the_first_report_is_open_when_the_page_loads(at):
-    assert opened_report(at) == "SYN-026"
-    assert at.session_state["open_id"] == "SYN-026"
+def test_no_report_is_open_when_the_page_loads_and_a_note_says_to_click(at):
+    assert opened_report(at) is None and at.session_state["open_id"] is None
+    assert any(c.value == text.PANEL_HINT for c in at.caption)
+    assert not [b for b in at.button if b.label == text.CLOSE_BUTTON]
+
+
+def row_of(app, report_id):
+    return list(queue_rows(app)[text.COL_REPORT]).index(report_id)
 
 
 def test_the_panel_has_its_sections_in_reading_order_each_in_a_box(at):
+    at = click_row(at, row_of(at, "SYN-011"))             # a report with details missing
     order = [m.value.strip("*") for m in at.markdown]
     wanted = [text.SECTION_REPORT, text.SECTION_WHY, text.SECTION_AI, text.SECTION_MISSING,
               text.SECTION_CHECKLIST, text.SECTION_DECISION, text.REVIEWER_HEADING]
@@ -119,13 +126,14 @@ def test_clicking_any_cell_of_a_row_opens_it(at):
 
 
 def test_the_open_row_is_shaded(at):
-    from views import queue_frame
-    assert at.dataframe[0].value.iloc[0][text.COL_REPORT] == "SYN-026"
+    at = click_row(at, 0)
+    assert at.session_state["open_id"] == "SYN-026"
     import views, inspect
     assert "background-color" in inspect.getsource(views.queue_frame)
 
 
 def test_the_close_button_hides_the_panel_and_clears_the_selection(at):
+    at = click_row(at, 0)
     at.button(key="close_panel").click()
     at.run(timeout=60)
     assert not at.exception
@@ -140,6 +148,7 @@ def test_the_close_button_hides_the_panel_and_clears_the_selection(at):
 
 
 def test_clicking_the_open_row_again_does_not_loop(at):
+    at = click_row(at, 0)
     at = click_row(at, 0)
     assert not at.exception and opened_report(at) == "SYN-026"
 
@@ -177,6 +186,7 @@ def fill(app, name, action, severity=None, reason="", report="SYN-026"):
 
 
 def test_lowering_without_a_reason_is_refused_and_nothing_is_saved(at):
+    at = click_row(at, 0)                                 # open the first report
     before = queue_rows(at).copy()
     fill(at, "Sam Lee", text.ACTION_CHANGE, severity=2, reason="")
     at.button(key="save_SYN-026").click()
@@ -188,6 +198,7 @@ def test_lowering_without_a_reason_is_refused_and_nothing_is_saved(at):
 
 
 def test_a_lowered_item_stays_visible_as_overruled_the_queue_does_not_move_and_the_panel_stays_open(at):
+    at = click_row(at, 0)                                 # open the first report
     order_before = list(queue_rows(at)[text.COL_REPORT])
     priority_before = list(queue_rows(at)[text.COL_PRIORITY])
     fill(at, "Sam Lee", text.ACTION_CHANGE, severity=2, reason="Checked with the lead, it was a harmless item.")
@@ -203,6 +214,7 @@ def test_a_lowered_item_stays_visible_as_overruled_the_queue_does_not_move_and_t
 
 
 def test_confirming_needs_a_name(at):
+    at = click_row(at, 0)                                 # open the first report
     fill(at, "", text.ACTION_CONFIRM)
     at.button(key="save_SYN-026").click()
     at.run(timeout=60)
@@ -210,6 +222,7 @@ def test_confirming_needs_a_name(at):
 
 
 def test_confirming_is_saved_without_a_reason(at):
+    at = click_row(at, 0)                                 # open the first report
     fill(at, "Sam Lee", text.ACTION_CONFIRM)
     at.button(key="save_SYN-026").click()
     at.run(timeout=60)
@@ -222,7 +235,8 @@ def test_a_failed_check_shows_one_plain_message(monkeypatch):
     monkeypatch.setattr(checks_module, "run_checks",
                         lambda reports, queue, statuses: [checks_module.Check(text.CHECK_COUNT_NAME, False, "x")])
     app = fresh_app(monkeypatch).run(timeout=60)
-    assert any(e.value.startswith("A quality check failed") for e in app.error)
+    assert [e.value for e in app.error] == [text.CHECKS_FAILED]
+    assert "technical" not in text.CHECKS_FAILED
 
 
 def test_report_text_is_shown_literally_never_as_a_link(monkeypatch):
@@ -247,10 +261,9 @@ def test_the_page_shows_the_cached_results_banner_and_no_failures_from_saved_ans
     monkeypatch.setenv("DATASET", "synthetic")
     app = AppTest.from_file(str(config.ROOT / "app.py")).run(timeout=60)
     assert not app.exception
-    assert any(w.value.startswith("CACHED RESULTS") for w in app.warning)
-    assert not any(w.value.startswith("HAND-WRITTEN") for w in app.warning)
+    assert text.NOTICE_SAVED in app.info[0].value and text.NOTICE_HAND not in app.info[0].value
     assert len(queue_rows(app)) == 28
-    assert any(s.value == text.CHECKS_ALL_PASSED.format(n=4) for s in app.success)
+    assert not app.error
 
 
 def test_every_saved_answer_is_valid_and_covers_every_report(reports):
@@ -270,3 +283,50 @@ def test_a_sample_report_can_be_dropped_into_the_live_box(monkeypatch):
     [b for b in app.button if b.label == text.LIVE_SAMPLE_USE][0].click()
     app.run(timeout=60)
     assert app.text_area(key="live_text").value == text.LIVE_SAMPLES["Understated: just a scratch"]
+
+
+# ---- nothing repeated in the panel ----
+
+def panel_texts(app):
+    return [x.value for x in app.text]
+
+
+def test_a_report_with_no_flag_shows_its_reason_once_and_no_empty_missing_box(at):
+    at = click_row(at, row_of(at, "SYN-007"))             # nothing found, nothing missing, short report
+    texts = panel_texts(at)
+    assert text.NO_FLAGS_NOTE in texts
+    reason = "A belt loader stopped working; nobody was hurt and nothing was damaged."
+    assert sum(reason in x for x in texts) == 1                           # the reason appears once, in the AI box
+    assert not any(x.startswith(text.CARD_SUMMARY) for x in texts)        # short report: no summary
+    assert text.SECTION_MISSING not in [m.value.strip("*") for m in at.markdown]
+
+
+def test_a_long_report_gets_its_summary_and_missing_details_are_one_line(at):
+    at = click_row(at, row_of(at, "SYN-027"))
+    assert any(x.startswith(text.CARD_SUMMARY) for x in panel_texts(at))
+    at = click_row(at, row_of(at, "SYN-023"))
+    assert "Whether anyone was hurt; What was done straight away" in panel_texts(at)
+
+
+def test_the_ai_rating_is_shown_only_when_it_differs_from_the_review_priority(at):
+    at = click_row(at, row_of(at, "SYN-002"))             # AI said Low, the fixed list raised it
+    assert any(x.startswith(f"{text.CARD_RATING}: Low (1). ") for x in panel_texts(at))
+    at = click_row(at, row_of(at, "SYN-016"))             # AI and review priority agree
+    assert not any(x.startswith(f"{text.CARD_RATING}:") for x in panel_texts(at))
+
+
+# ---- tally and decisions file ----
+
+def test_the_tally_starts_at_zero_and_the_download_waits_for_a_decision(at):
+    assert any(c.value.startswith("Reviewed 0 of 28:") and text.KEEP_NOTE in c.value for c in at.caption)
+    button = at.get("download_button")[0]
+    assert button.proto.disabled is True
+
+
+def test_saving_a_decision_updates_the_tally_and_enables_the_download(at):
+    at = click_row(at, 0)
+    fill(at, "Sam Lee", text.ACTION_CONFIRM)
+    at.button(key="save_SYN-026").click()
+    at.run(timeout=60)
+    assert any(c.value.startswith("Reviewed 1 of 28: confirmed 1, raised 0, lowered 0, needs more information 0.") for c in at.caption)
+    assert at.get("download_button")[0].proto.disabled is False
