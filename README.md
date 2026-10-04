@@ -12,10 +12,10 @@ Right now it is a **test stage**: reviewers check whether the AI reader rated ea
 ## What it does
 - 28 invented reports, all marked **SYNTHETIC** (see `data/README.md`).
 - A review queue, most urgent first, with the reason in plain words.
-- Click any row and the full report opens in a panel beside it, in separate boxes. A Close button gives the table the full width again.
+- Click any row and that report takes over the page, with two tabs: **Report details** (the report, the reason for the rating, what the AI reader said, what is missing, a checklist) and **Review** (the reviewer's decision). A Back button returns to the queue.
 - The report card keeps three things apart: what the AI reader suggested, the review priority worked out by fixed rules, and the reviewer's decision.
 - A reviewer panel. Lowering a priority needs a written reason. A decision never replaces the computed result, and a lowered item stays visible as "Overruled by NAME: REASON".
-- A tally of reviewer decisions and a download of them as a CSV file. The page opens with the queue only; clicking a row opens its report.
+- A tally of reviewer decisions and a download of them as a CSV file. The page opens with the queue only.
 - A chart of reports by review priority. Four quality checks run quietly in the background and show a plain message only if one fails.
 
 ## Where it would fit in a company

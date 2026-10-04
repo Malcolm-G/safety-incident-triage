@@ -59,8 +59,10 @@ DETAILS_INCOMPLETE = "Incomplete: {n} missing"
 ALT_QUEUE = "The review queue, most urgent first"
 
 # ---------- report panel (opens when a row is clicked) ----------
-PANEL_HINT = "Click any row to open its report beside the table."
-CLOSE_BUTTON = "Close"
+PANEL_HINT = "Click any row to open its report."
+BACK_BUTTON = "Back to the queue"
+TAB_DETAILS = "Report details"
+TAB_REVIEW = "Review"
 SECTION_REPORT = "The report"
 SECTION_WHY = "Reason for the rating"
 SECTION_AI = "What the AI reader said"

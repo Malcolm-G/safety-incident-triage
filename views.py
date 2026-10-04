@@ -82,10 +82,9 @@ def render_tally(queue: list[Triage], log: DecisionLog, ref: Reference) -> None:
                            file_name="decisions.csv", mime="text/csv", disabled=len(log) == 0)
 
 
-def queue_frame(queue: list[Triage], log: DecisionLog, ref: Reference, open_id: str | None):
-    """The queue as a table, with the open report's row shaded. st.dataframe shows cells as plain text,
-    so report text cannot become a link."""
-    frame = pd.DataFrame([{
+def queue_frame(queue: list[Triage], log: DecisionLog, ref: Reference) -> pd.DataFrame:
+    """The queue as a table. st.dataframe shows cells as plain text, so report text cannot become a link."""
+    return pd.DataFrame([{
         text.COL_ORDER: i,
         text.COL_REPORT: t.report_id,
         text.COL_PRIORITY: priority_label(t),
@@ -93,20 +92,16 @@ def queue_frame(queue: list[Triage], log: DecisionLog, ref: Reference, open_id: 
         text.COL_DETAILS: details_label(t),
         text.COL_REVIEWER: reviewer_label(log, t.report_id, ref),
     } for i, t in enumerate(queue, start=1)])
-    shade = [t.report_id == open_id for t in queue]
-    return frame.style.apply(
-        lambda row: ["background-color:rgba(255,75,75,.18)" if shade[row.name] else "" for _ in row], axis=1)
 
 
-def render_queue(queue: list[Triage], log: DecisionLog, ref: Reference, open_id: str | None) -> str | None:
+def render_queue(queue: list[Triage], log: DecisionLog, ref: Reference) -> str | None:
     """Draw the queue. Clicking any cell in a row selects that row's report. Returns the clicked report id, or None."""
     st.subheader(text.QUEUE_HEADING)
     st.caption(text.QUEUE_INTRO)
-    if open_id is None:
-        st.caption(text.PANEL_HINT)
+    st.caption(text.PANEL_HINT)
     ids = [t.report_id for t in queue]
     event = st.dataframe(
-        queue_frame(queue, log, ref, open_id), hide_index=True, height="content", on_select="rerun",
+        queue_frame(queue, log, ref), hide_index=True, height="content", on_select="rerun",
         selection_mode="single-cell", key=f"queue_{st.session_state.get('queue_gen', 0)}",
         alt=text.ALT_QUEUE_TABLE,
         column_config={
@@ -122,8 +117,8 @@ def render_queue(queue: list[Triage], log: DecisionLog, ref: Reference, open_id:
 
 
 def open_report(report_id: str | None) -> None:
-    """Open a report in the panel (or close the panel with None). Closing clears the table's selection
-    by changing its key, so the next click is a fresh one."""
+    """Open a report on its own page (or go back to the queue with None). Going back clears the table's
+    selection by changing its key, so the next click is a fresh one."""
     st.session_state["open_id"] = report_id
     if report_id is None:
         st.session_state["queue_gen"] = st.session_state.get("queue_gen", 0) + 1
@@ -202,31 +197,30 @@ def _sections(t: Triage, ref: Reference, show_summary: bool = True) -> None:
             st.text(item)
 
 
-def render_panel(t: Triage, report: Report, log: DecisionLog, ref: Reference) -> None:
-    """The report, in its own bordered boxes, in reading order."""
-    with st.container(border=True):
-        head, close = st.columns([4, 1])
-        head.subheader(t.report_id)
-        close.button(text.CLOSE_BUTTON, key="close_panel", on_click=_close_panel)
-        kind = ref.type_names[t.reading.incident_type] if t.reading else text.AI_NO_ANSWER
-        st.write(f"{priority_label(t)} ({t.final_severity}). {text.LOOKS_LIKE}: {kind}")
+def render_report_page(t: Triage, report: Report, log: DecisionLog, ref: Reference) -> None:
+    """One report on its own page: a Back button, then two tabs, the details and the reviewer's part."""
+    head, back = st.columns([5, 1], vertical_alignment="center")
+    head.subheader(t.report_id)
+    back.button(text.BACK_BUTTON, key="close_panel", on_click=_close_panel)
+    kind = ref.type_names[t.reading.incident_type] if t.reading else text.AI_NO_ANSWER
+    st.write(f"{priority_label(t)} ({t.final_severity}). {text.LOOKS_LIKE}: {kind}")
 
-    with _box(text.SECTION_REPORT):
-        st.text(report.text)
-
-    _sections(t, ref, show_summary=len(report.text.split()) >= LONG_REPORT_WORDS)
-
-    with _box(text.SECTION_DECISION):
-        latest = log.latest(t.report_id)
-        st.text(reviewer.describe(latest, ref.scale) if latest else text.NO_DECISION)
-        earlier = log.history(t.report_id)[:-1]
-        if earlier:
-            st.caption(text.HISTORY_HEADING)
-            for d in reversed(earlier):
-                st.text(reviewer.describe(d, ref.scale))
-        st.divider()
-        st.markdown(f"**{text.REVIEWER_HEADING}**")
-        render_reviewer(t, log, ref)
+    details, review = st.tabs([text.TAB_DETAILS, text.TAB_REVIEW], key=f"report_tabs_{t.report_id}", on_change="rerun")
+    with details:
+        with _box(text.SECTION_REPORT):
+            st.text(report.text)
+        _sections(t, ref, show_summary=len(report.text.split()) >= LONG_REPORT_WORDS)
+    with review:
+        with _box(text.SECTION_DECISION):
+            latest = log.latest(t.report_id)
+            st.text(reviewer.describe(latest, ref.scale) if latest else text.NO_DECISION)
+            earlier = log.history(t.report_id)[:-1]
+            if earlier:
+                st.caption(text.HISTORY_HEADING)
+                for d in reversed(earlier):
+                    st.text(reviewer.describe(d, ref.scale))
+        with _box(text.REVIEWER_HEADING):
+            render_reviewer(t, log, ref)
 
 
 def render_all(queue: list[Triage], log: DecisionLog, ref: Reference) -> None:

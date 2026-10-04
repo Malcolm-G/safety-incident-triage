@@ -1,4 +1,4 @@
-"""The page: a clickable queue, the report panel on the right in separate boxes, the reviewer panel, and the checks."""
+"""The page: a clickable queue, each report on its own page with a details tab and a review tab, and the checks."""
 import numpy as np
 import pytest
 from streamlit.testing.v1 import AppTest
@@ -24,10 +24,19 @@ def queue_rows(app):
     return app.dataframe[0].value
 
 
-def click_row(app, position):
-    """Simulate clicking a cell in a row of the queue, as the browser would (a cell is [row, column name])."""
+def back(app):
+    """Press the Back button, as a person would."""
+    app.button(key="close_panel").click()
+    return app.run(timeout=60)
+
+
+def click_row(app, position, column=text.COL_WHY):
+    """Simulate clicking a cell in a row of the queue, as the browser would (a cell is [row, column name]).
+    If a report is open, go back to the queue first."""
+    if "open_id" in app.session_state and app.session_state["open_id"] is not None:
+        app = back(app)
     key = f"queue_{app.session_state['queue_gen'] if 'queue_gen' in app.session_state else 0}"
-    cells = [[position, text.COL_WHY]] if position is not None else []
+    cells = [[position, column]] if position is not None else []
     app.session_state[key] = {"selection": {"rows": [], "columns": [], "cells": cells}}
     return app.run(timeout=60)
 
@@ -74,16 +83,22 @@ def test_why_it_is_here_gives_a_clear_reason_with_a_little_detail_not_a_story(at
             assert narration not in line, (report_id, line)
 
 
-# ---- click a row: the report opens in a panel ----
+# ---- click a row: the report takes over the page ----
 
 def test_no_report_is_open_when_the_page_loads_and_a_note_says_to_click(at):
     assert opened_report(at) is None and at.session_state["open_id"] is None
     assert any(c.value == text.PANEL_HINT for c in at.caption)
-    assert not [b for b in at.button if b.label == text.CLOSE_BUTTON]
+    assert not [b for b in at.button if b.label == text.BACK_BUTTON]
 
 
 def row_of(app, report_id):
-    return list(queue_rows(app)[text.COL_REPORT]).index(report_id)
+    from triage.fixtures import load_fixture_outcomes
+    from triage.loader import load_reports
+    from triage.priority import build_queue
+    from triage.reference import load_reference
+    reports = load_reports()
+    order = build_queue(reports, load_fixture_outcomes([r.report_id for r in reports]), load_reference())
+    return [x.report_id for x in order].index(report_id)
 
 
 def test_the_panel_has_its_sections_in_reading_order_each_in_a_box(at):
@@ -91,6 +106,7 @@ def test_the_panel_has_its_sections_in_reading_order_each_in_a_box(at):
     order = [m.value.strip("*") for m in at.markdown]
     wanted = [text.SECTION_REPORT, text.SECTION_WHY, text.SECTION_AI, text.SECTION_MISSING,
               text.SECTION_CHECKLIST, text.SECTION_DECISION, text.REVIEWER_HEADING]
+    assert [tab.label for tab in at.tabs] == [text.TAB_DETAILS, text.TAB_REVIEW]
     positions = [order.index(w) for w in wanted]
     assert positions == sorted(positions)
     import re
@@ -117,29 +133,28 @@ def test_the_panel_shows_every_detail_of_the_reason_and_what_the_AI_said(at):
 
 
 def test_clicking_any_cell_of_a_row_opens_it(at):
-    for column in (text.COL_ORDER, text.COL_REPORT, text.COL_PRIORITY, text.COL_DETAILS, text.COL_REVIEWER):
-        key = "queue_0"
-        at.session_state[key] = {"selection": {"rows": [], "columns": [], "cells": [[5, column]]}}
-        at.run(timeout=60)
+    for column in (text.COL_ORDER, text.COL_REPORT, text.COL_PRIORITY, text.COL_WHY, text.COL_DETAILS, text.COL_REVIEWER):
+        at = click_row(at, row_of(at, "SYN-011"), column)
         assert not at.exception
-        assert opened_report(at) == list(queue_rows(at)[text.COL_REPORT])[5], column
+        assert opened_report(at) == "SYN-011", column
 
 
-def test_the_open_row_is_shaded(at):
+def test_the_report_takes_over_the_page(at):
     at = click_row(at, 0)
-    assert at.session_state["open_id"] == "SYN-026"
-    import views, inspect
-    assert "background-color" in inspect.getsource(views.queue_frame)
+    assert opened_report(at) == "SYN-026"
+    assert len(at.dataframe) == 0                         # the queue is not drawn
+    assert not at.info and len(at.expander) == 0          # nor the notice or the key
+    assert [b.label for b in at.button if b.key == "close_panel"] == [text.BACK_BUTTON]
 
 
-def test_the_close_button_hides_the_panel_and_clears_the_selection(at):
+def test_the_back_button_returns_to_the_queue_and_clears_the_selection(at):
     at = click_row(at, 0)
     at.button(key="close_panel").click()
     at.run(timeout=60)
     assert not at.exception
     assert opened_report(at) is None
     assert at.session_state["open_id"] is None and at.session_state["queue_gen"] == 1
-    assert not [b for b in at.button if b.label == text.CLOSE_BUTTON]
+    assert not [b for b in at.button if b.label == text.BACK_BUTTON]
     assert len(queue_rows(at)) == 28                      # the queue is still there, now with no row selected
     at.run(timeout=60)                                    # a further run changes nothing: no loop
     assert opened_report(at) is None and not at.exception
@@ -186,31 +201,33 @@ def fill(app, name, action, severity=None, reason="", report="SYN-026"):
 
 
 def test_lowering_without_a_reason_is_refused_and_nothing_is_saved(at):
-    at = click_row(at, 0)                                 # open the first report
     before = queue_rows(at).copy()
+    at = click_row(at, 0)                                 # open the first report
     fill(at, "Sam Lee", text.ACTION_CHANGE, severity=2, reason="")
     at.button(key="save_SYN-026").click()
     at.run(timeout=60)
     assert any(text.ERR_REASON in e.value for e in at.error)
     assert len(at.session_state["decisions"]) == 0
+    at = back(at)
     assert queue_rows(at).iloc[0][text.COL_REVIEWER] == text.STATUS_WAITING
     assert queue_rows(at).equals(before)
 
 
-def test_a_lowered_item_stays_visible_as_overruled_the_queue_does_not_move_and_the_panel_stays_open(at):
-    at = click_row(at, 0)                                 # open the first report
+def test_a_lowered_item_stays_visible_as_overruled_the_queue_does_not_move_and_the_page_stays_open(at):
     order_before = list(queue_rows(at)[text.COL_REPORT])
     priority_before = list(queue_rows(at)[text.COL_PRIORITY])
+    at = click_row(at, 0)                                 # open the first report
     fill(at, "Sam Lee", text.ACTION_CHANGE, severity=2, reason="Checked with the lead, it was a harmless item.")
     at.button(key="save_SYN-026").click()
     at.run(timeout=60)
     assert not at.exception and not at.error
     assert any(text.SAVED_OK in s.value for s in at.success)
+    assert opened_report(at) == "SYN-026"                               # saving does not leave the report
+    assert any("Overruled by Sam Lee" in t.value for t in at.text)      # shown in the decision box too
+    at = back(at)
     rows = queue_rows(at)
     assert "Overruled by Sam Lee: Checked with the lead" in rows.iloc[0][text.COL_REVIEWER]
     assert list(rows[text.COL_REPORT]) == order_before and list(rows[text.COL_PRIORITY]) == priority_before
-    assert opened_report(at) == "SYN-026"                               # saving does not close the panel
-    assert any("Overruled by Sam Lee" in t.value for t in at.text)      # shown in the decision box too
 
 
 def test_confirming_needs_a_name(at):
@@ -227,6 +244,7 @@ def test_confirming_is_saved_without_a_reason(at):
     at.button(key="save_SYN-026").click()
     at.run(timeout=60)
     assert not at.error
+    at = back(at)
     assert "Confirmed by Sam Lee" in queue_rows(at).iloc[0][text.COL_REVIEWER]
 
 
@@ -328,6 +346,7 @@ def test_saving_a_decision_updates_the_tally_and_enables_the_download(at):
     fill(at, "Sam Lee", text.ACTION_CONFIRM)
     at.button(key="save_SYN-026").click()
     at.run(timeout=60)
+    at = back(at)
     assert any(c.value.startswith("Reviewed 1 of 28: confirmed 1, raised 0, lowered 0, needs more information 0.") for c in at.caption)
     assert at.get("download_button")[0].proto.disabled is False
 
