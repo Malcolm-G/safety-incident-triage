@@ -19,8 +19,9 @@ def outcome_from_json(item: dict) -> Outcome:
         return Failure.invalid_answer
 
 
-def load_fixture_outcomes(report_ids: list[str], dataset: str | None = None) -> dict[str, Outcome]:
-    path = config.dataset_dir(dataset or config.DATASET) / "extractions_fixture.json"
+def load_fixture_outcomes(report_ids: list[str], dataset: str | None = None,
+                          filename: str = "extractions_fixture.json") -> dict[str, Outcome]:
+    path = config.dataset_dir(dataset or config.DATASET) / filename
     items = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
     out: dict[str, Outcome] = {}
     for item in items:

@@ -27,11 +27,13 @@ except DatasetMissing:
 
 st.warning(info.label)
 st.info(text.ILLUSTRATIVE_NOTE)
-st.warning(text.FIXTURE_BANNER)
+use_saved = config.ANSWERS == "saved" and (config.dataset_dir() / "ai_answers.json").exists()
+st.warning(text.CACHED_BANNER if use_saved else text.FIXTURE_BANNER)
 
 ref = load_reference()
 reports_by_id = {r.report_id: r for r in reports}
-outcomes = load_fixture_outcomes([r.report_id for r in reports])
+outcomes = load_fixture_outcomes([r.report_id for r in reports],
+                                 filename="ai_answers.json" if use_saved else "extractions_fixture.json")
 queue = build_queue(reports, outcomes, ref)
 
 log = st.session_state.setdefault("decisions", DecisionLog())

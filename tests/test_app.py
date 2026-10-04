@@ -11,6 +11,7 @@ from views import clicked_report_id
 def fresh_app(monkeypatch):
     monkeypatch.setattr(config, "load_dotenv", lambda: None)
     monkeypatch.setenv("DATASET", "synthetic")
+    monkeypatch.setattr(config, "ANSWERS", "fixture")      # the tests below rely on the hand-written answers
     return AppTest.from_file(str(config.ROOT / "app.py"))
 
 
@@ -236,3 +237,23 @@ def test_missing_dataset_gives_a_plain_message(monkeypatch):
     app = AppTest.from_file(str(config.ROOT / "app.py")).run(timeout=60)
     assert not app.exception
     assert any(text.DATA_MISSING in e.value for e in app.error)
+
+
+# ---- saved answers from the real final run ----
+
+def test_the_page_shows_the_cached_results_banner_and_no_failures_from_saved_answers(monkeypatch):
+    monkeypatch.setattr(config, "load_dotenv", lambda: None)
+    monkeypatch.setenv("DATASET", "synthetic")
+    app = AppTest.from_file(str(config.ROOT / "app.py")).run(timeout=60)
+    assert not app.exception
+    assert any(w.value.startswith("CACHED RESULTS") for w in app.warning)
+    assert not any(w.value.startswith("HAND-WRITTEN") for w in app.warning)
+    assert len(queue_rows(app)) == 28
+    assert any(s.value == text.CHECKS_ALL_PASSED.format(n=4) for s in app.success)
+
+
+def test_every_saved_answer_is_valid_and_covers_every_report(reports):
+    from triage.fixtures import load_fixture_outcomes
+    from triage.models import Failure
+    got = load_fixture_outcomes([r.report_id for r in reports], filename="ai_answers.json")
+    assert len(got) == 28 and not any(isinstance(v, Failure) for v in got.values())

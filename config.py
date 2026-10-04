@@ -12,6 +12,7 @@ REFERENCE_DIR = DATA_DIR / "reference"
 DATASET = os.environ.get("DATASET", "synthetic")
 MODEL = os.environ.get("MODEL", "claude-sonnet-5-5")  # chosen on the tuning reports in P2b; override with MODEL
 PROMPT_VERSION = "v1"
+ANSWERS = os.environ.get("ANSWERS", "saved")  # "saved" = answers from the final run; "fixture" = hand-written (tests)
 
 
 def dataset_dir(dataset: str = DATASET) -> Path:

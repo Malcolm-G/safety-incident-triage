@@ -19,7 +19,9 @@ ILLUSTRATIVE_NOTE = ("ILLUSTRATIVE ASSUMPTIONS. The severity scale, the fixed li
 REVIEW_AGAINST_POLICY = "Items are flagged for review against your own company's policy."
 FIXTURE_BANNER = ("HAND-WRITTEN EXAMPLE ANSWERS. The AI reader's answers on this page were written by hand "
                   "for development. They are not real AI output.")
-DATA_MISSING = "The reports could not be found. Set DATASET=synthetic to use the built-in examples."
+CACHED_BANNER = ("CACHED RESULTS. The AI reader's answers on this page were saved from one earlier run. "
+                 "The page is not asking the AI reader anything now.")
+DATA_MISSING ="The reports could not be found. Set DATASET=synthetic to use the built-in examples."
 
 TAB_QUEUE = "Review queue"
 TAB_ALL = "All reports and chart"
