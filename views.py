@@ -167,7 +167,7 @@ def _box(title: str):
 
 
 def _sections(t: Triage, ref: Reference, show_summary: bool = True) -> None:
-    """Reason for the rating, what the AI reader said, what is missing and the checklist. Each fact appears once."""
+    """Reason for the rating, the AI reader's assessment, missing details and the things to check. Each fact appears once."""
     with _box(text.SECTION_WHY):
         lines = [line for line in t.why if not (t.reading and line == t.reading.rating_reason)]
         for line in lines or [text.NO_FLAGS_NOTE]:
